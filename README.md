@@ -4,9 +4,12 @@ A .NET implementation of the **Grant Negotiation and Authorization Protocol (GNA
 [RFC 9635](https://datatracker.ietf.org/doc/rfc9635/))**, built incrementally in seven
 phases — see the [phased implementation plan](output/gnap-dotnet-phases-plan.md).
 
-New to HTTP Message Signatures? Start with
-**[How it works — for dummies](docs/how-it-works.md)**, a plain-language guide
-to the concepts and this library's design.
+New here? Two plain-language guides build the concepts up from zero:
+
+- **[HTTP Message Signatures for Dummies](docs/how-it-works.md)** — the
+  cryptographic foundation (Phase 0)
+- **[GNAP for Dummies](docs/gnap-for-dummies.md)** — the protocol itself:
+  roles, keys, key proofing, the interaction dance (Phase 1)
 
 ## Status
 
@@ -23,6 +26,7 @@ to the concepts and this library's design.
 | `examples/HttpSignatures.Demo` | Self-contained test bed: vector checks plus a live signed-client-against-Kestrel demo |
 | `examples/VerifyingServer` | Standalone Kestrel resource server protected by the verification middleware |
 | `examples/SigningClient` | CLI that signs requests, prints the signature base/headers and calls any URL |
+| `examples/GnapCore.Demo` | Guided GNAP walkthrough: JWKs and thumbprints, grant-request JSON, key proofing (incl. replay/tamper rejection), finish-hash vectors, and a live signed grant negotiation against an in-process mini AS |
 
 Requires the **.NET 10 SDK**.
 
@@ -70,6 +74,7 @@ app.UseHttpMessageSignatureVerification();
 ```bash
 dotnet test                                        # full suite incl. RFC 9421 vectors
 dotnet run --project examples/HttpSignatures.Demo  # manual test: vectors + live demo
+dotnet run --project examples/GnapCore.Demo        # GNAP walkthrough + live mini-AS round trip
 ```
 
 The demo starts a local Kestrel server with the verification middleware, sends a

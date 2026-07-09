@@ -45,6 +45,7 @@ namespace Gnap.Core.Json;
 [JsonSerializable(typeof(IList<StartMode>))]
 [JsonSerializable(typeof(IList<string>))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(JsonElement))]
 public sealed partial class GnapJsonContext : JsonSerializerContext;
 

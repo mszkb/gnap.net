@@ -171,6 +171,10 @@ AS und RS gemeinsam nutzen.
 - [x] **JSON-Serialisierung:** `System.Text.Json` Source Generators für alle Modelle
       (AOT-fähig, trimming-safe), Polymorphie (Referenz vs. Objekt, Objekt vs. Array)
       via Converter
+- [x] **Beispiel-App & Doku:** `examples/GnapCore.Demo` (JWKs/Thumbprints, Modelle,
+      Proofing inkl. Replay-/Tamper-Abwehr, Finish-Hash, Live-Grant-Flow gegen
+      Mini-AS im Prozess) + `docs/gnap-for-dummies.md` (englischer
+      Plain-Language-Guide analog zur Phase-0-Doku)
 
 ### Tests
 
