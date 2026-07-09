@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Gnap.HttpMessageSignatures</PackageId>
+    <Description>HTTP Message Signatures (RFC 9421) and Digest Fields (RFC 9530) for .NET: signature base canonicalization, signing and verification with Ed25519, ECDSA, RSA-PSS and HMAC, plus an HttpClient DelegatingHandler.</Description>
+    <PackageTags>http-message-signatures;rfc9421;rfc9530;gnap;security;signatures</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />
+  </ItemGroup>
+
+</Project>

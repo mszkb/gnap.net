@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Gnap.HttpMessageSignatures.AspNetCore</PackageId>
+    <Description>ASP.NET Core middleware that verifies HTTP Message Signatures (RFC 9421) and Content-Digest fields (RFC 9530) on incoming requests.</Description>
+    <PackageTags>http-message-signatures;rfc9421;rfc9530;aspnetcore;middleware;gnap</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Gnap.HttpMessageSignatures\Gnap.HttpMessageSignatures.csproj" />
+  </ItemGroup>
+
+</Project>
