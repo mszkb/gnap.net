@@ -4,6 +4,10 @@ A .NET implementation of the **Grant Negotiation and Authorization Protocol (GNA
 [RFC 9635](https://datatracker.ietf.org/doc/rfc9635/))**, built incrementally in seven
 phases — see the [phased implementation plan](output/gnap-dotnet-phases-plan.md).
 
+New to HTTP Message Signatures? Start with
+**[How it works — for dummies](docs/how-it-works.md)**, a plain-language guide
+to the concepts and this library's design.
+
 ## Status
 
 **Phase 0 — HTTP Message Signatures (RFC 9421)** is implemented:
