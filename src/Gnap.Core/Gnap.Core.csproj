@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Gnap.Core</PackageId>
+    <Description>Protocol-neutral GNAP (RFC 9635) building blocks for .NET: JSON Web Key handling with RFC 7638 thumbprints, httpsig key proofing on top of RFC 9421, the interaction finish hash, and source-generated JSON models for grant requests and responses.</Description>
+    <PackageTags>gnap;rfc9635;authorization;jwk;security</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Gnap.HttpMessageSignatures\Gnap.HttpMessageSignatures.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -144,39 +144,51 @@ AS und RS gemeinsam nutzen.
 
 ### Aufgaben
 
-- [ ] **JWK-Handling:** Parsing/Serialisierung von JWK (EC, OKP/Ed25519, RSA),
+- [x] **JWK-Handling:** Parsing/Serialisierung von JWK (EC, OKP/Ed25519, RSA),
       Thumbprint (RFC 7638), Konvertierung zu/von `System.Security.Cryptography`-Typen
-- [ ] **Key Proofing (RFC 9635 §7.3):**
-  - [ ] `httpsig` — Anbindung an Phase 0
-  - [ ] Proofing-Abstraktion `IKeyProofer` / `IKeyProofValidator` (erweiterbar für
+      (`JsonWebKey` inkl. Mapping auf Phase-0-`SignatureAlgorithm`)
+- [x] **Key Proofing (RFC 9635 §7.3):**
+  - [x] `httpsig` — Anbindung an Phase 0 (`HttpSigKeyProofer` / `HttpSigKeyProofValidator`
+        mit Content-Digest-Prüfung, `tag="gnap"`, `created`-Fenster, Nonce-Replay-Schutz
+        via `INonceStore`)
+  - [x] Proofing-Abstraktion `IKeyProofer` / `IKeyProofValidator` (erweiterbar für
         `mtls`, `jwsd`, `jws`)
-- [ ] **Interaction Finish Hash (RFC 9635 §4.2.3):**
+- [x] **Interaction Finish Hash (RFC 9635 §4.2.3):**
       `hash = base64url(H(client_nonce + "\n" + as_nonce + "\n" + interact_ref + "\n" + grant_endpoint_url))`
-      mit Hash-Agilität (`sha-256` Default, IANA Named Information Registry)
-- [ ] **Access Token Model:** Wert, `label`, `access` (Array aus Strings und
-      strukturierten Objekten), `expires_in`, `key`-Binding (bound/bearer), Flags (`durable`)
-- [ ] **Strukturierte Access Requests (RFC 9635 §8):** `type`, `actions`, `locations`,
-      `datatypes`, `identifier`, `privileges` — inkl. Referenz-Strings
-- [ ] **Interaction Model:** `start` (`redirect`, `app`, `user_code`, `user_code_uri`),
-      `finish` (`redirect`, `push`), Nonces, Callback-URIs
-- [ ] **Fehler-Modell (RFC 9635 §3.6):** `error`-Codes als Typen, konsistentes Mapping
-- [ ] **JSON-Serialisierung:** `System.Text.Json` Source Generators für alle Modelle
-      (AOT-fähig, trimming-safe), Polymorphie (Token-Referenz vs. -Objekt) via Converter
+      mit Hash-Agilität (`sha-256` Default, IANA Named Information Registry;
+      sha-384/512 immer, sha3-256/384/512 plattformabhängig)
+- [x] **Access Token Model:** Wert, `label`, `access` (Array aus Strings und
+      strukturierten Objekten), `expires_in`, `key`-Binding (bound/bearer), Flags (`durable`),
+      Token-Management (`manage` mit eigenem Access Token)
+- [x] **Strukturierte Access Requests (RFC 9635 §8):** `type`, `actions`, `locations`,
+      `datatypes`, `identifier`, `privileges` — inkl. Referenz-Strings und
+      API-spezifischer Zusatzfelder
+- [x] **Interaction Model:** `start` (`redirect`, `app`, `user_code`, `user_code_uri`,
+      auch Objekt-Form für Extensions), `finish` (`redirect`, `push`), Nonces,
+      Callback-URIs, `hints`/`ui_locales`
+- [x] **Fehler-Modell (RFC 9635 §3.6):** `error`-Codes als Typen (`GnapErrorCode` mit
+      allen 13 registrierten Codes), String- und Objekt-Form
+- [x] **JSON-Serialisierung:** `System.Text.Json` Source Generators für alle Modelle
+      (AOT-fähig, trimming-safe), Polymorphie (Referenz vs. Objekt, Objekt vs. Array)
+      via Converter
 
 ### Tests
 
-- [ ] JWK Roundtrip (parse → export → parse) für alle Key-Typen, Thumbprint-Vektoren
-      aus RFC 7638
-- [ ] Key Proof positiv/negativ (falscher Key, manipulierter Body, Replay)
-- [ ] Finish-Hash-Vektoren (eigene + gegen Referenzimplementierung verifiziert)
-- [ ] JSON Serialization Roundtrip für alle Modelle mit Source Generators,
+- [x] JWK Roundtrip (parse → export → parse) für alle Key-Typen, Thumbprint-Vektoren
+      aus RFC 7638 (RSA) und RFC 8037 (Ed25519)
+- [x] Key Proof positiv/negativ (falscher Key, manipulierter Body, Replay, fehlender/falscher
+      `tag`, verbotener `alg`-Parameter, veraltete Signatur, `keyid`-Mismatch)
+- [x] Finish-Hash-Vektoren (sha-256- und sha3-512-Vektoren aus RFC 9635 §4.2.3)
+- [x] JSON Serialization Roundtrip für alle Modelle mit Source Generators,
       inkl. Unknown-Member-Toleranz (Forward Compatibility)
 
 ### Akzeptanzkriterien
 
-- ✅ Alle Modelle bilden RFC 9635 §2–§8 vollständig ab
-- ✅ Kein Reflection-basiertes JSON (Source Generators only), AOT-Publish kompiliert
-- ✅ Key-Proof-Negativtests decken alle Manipulationsklassen ab
+- [x] Alle Modelle bilden RFC 9635 §2–§8 vollständig ab (67 Tests in `Gnap.Core.Tests`)
+- [x] Kein Reflection-basiertes JSON (Source Generators only); `IsAotCompatible`
+      aktiviert, AOT-Analyzer warnungsfrei (Native-AOT-Publish-Smoke-Test folgt mit
+      Phase 6 CI-Ausbau)
+- [x] Key-Proof-Negativtests decken alle Manipulationsklassen ab
 
 ---
 
