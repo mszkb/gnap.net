@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>VerifyingServer</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Gnap.HttpMessageSignatures\Gnap.HttpMessageSignatures.csproj" />
+    <ProjectReference Include="..\..\src\Gnap.HttpMessageSignatures.AspNetCore\Gnap.HttpMessageSignatures.AspNetCore.csproj" />
+  </ItemGroup>
+
+</Project>

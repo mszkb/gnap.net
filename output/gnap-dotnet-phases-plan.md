@@ -4,8 +4,8 @@ Ein inkrementeller 7-Phasen-Plan für eine vollständige, RFC-konforme GNAP-Impl
 (Grant Negotiation and Authorization Protocol, **RFC 9635** / **RFC 9767**) in .NET,
 inklusive HTTP Message Signatures (**RFC 9421**) als kryptografischer Basis.
 
-**Zielplattform:** .NET 8+ (LTS), ASP.NET Core
-**Sprache:** C# 12, Nullable Reference Types, Source-Generated JSON Serialization
+**Zielplattform:** .NET 10 (LTS), ASP.NET Core
+**Sprache:** C# (latest), Nullable Reference Types, Source-Generated JSON Serialization
 **Lizenz:** siehe `LICENSE` im Repository-Root
 
 ---
@@ -80,46 +80,60 @@ das RFC 9421 vollständig implementiert und unabhängig von GNAP nutzbar ist.
 
 ### Aufgaben
 
-- [ ] **Projekt-Setup:** Solution-Struktur, `Directory.Build.props`, zentrale
-      Package-Versionen, `.editorconfig`, Analyzer (Roslyn + Security)
-- [ ] **`SignatureBaseBuilder`:** Kanonische Signature Base gemäß RFC 9421 §2.5
-  - [ ] Component Identifier: HTTP-Felder (lowercase, strukturierte Felder via `sf`-Flag)
-  - [ ] Derived Components: `@method`, `@target-uri`, `@authority`, `@scheme`,
+- [x] **Projekt-Setup:** Solution-Struktur, `Directory.Build.props`, Analyzer
+      (`EnableNETAnalyzers`, Warnings-as-Errors); zentrale Package-Versionen und
+      `.editorconfig` folgen bei Bedarf
+- [x] **`SignatureBaseBuilder`:** Kanonische Signature Base gemäß RFC 9421 §2.5
+  - [x] Component Identifier: HTTP-Felder (lowercase, strukturierte Felder via
+        `sf`/`key`/`bs`/`tr`/`req`-Parameter)
+  - [x] Derived Components: `@method`, `@target-uri`, `@authority`, `@scheme`,
         `@request-target`, `@path`, `@query`, `@query-param`, `@status`
-  - [ ] Parameter: `created`, `expires`, `nonce`, `alg`, `keyid`, `tag`
-  - [ ] `@signature-params`-Zeile (Structured Fields Serialization, RFC 8941)
-- [ ] **Signer:** `IHttpMessageSigner` mit Implementierungen für
-  - [ ] Ed25519 (`ed25519`)
-  - [ ] ECDSA P-256 / SHA-256 (`ecdsa-p256-sha256`)
-  - [ ] ECDSA P-384 / SHA-384 (`ecdsa-p384-sha384`)
-  - [ ] RSA-PSS / SHA-512 (`rsa-pss-sha512`)
-  - [ ] HMAC-SHA256 (`hmac-sha256`) — für Tests/Introspection
-- [ ] **Verifier:** `IHttpMessageVerifier` — Parsing von `Signature`/`Signature-Input`
+  - [x] Parameter: `created`, `expires`, `nonce`, `alg`, `keyid`, `tag`
+  - [x] `@signature-params`-Zeile (Structured Fields Serialization, RFC 8941 —
+        eigener Parser/Serializer in `StructuredFields/`)
+- [x] **Signer:** `HttpMessageSigner` über `SignatureAlgorithm`-Abstraktion
+  - [x] Ed25519 (`ed25519`, via BouncyCastle — .NET 8 hat kein natives Ed25519)
+  - [x] ECDSA P-256 / SHA-256 (`ecdsa-p256-sha256`)
+  - [x] ECDSA P-384 / SHA-384 (`ecdsa-p384-sha384`)
+  - [x] RSA-PSS / SHA-512 (`rsa-pss-sha512`) + RSA v1.5 / SHA-256 (`rsa-v1_5-sha256`)
+  - [x] HMAC-SHA256 (`hmac-sha256`) — für Tests/Introspection
+- [x] **Verifier:** `HttpMessageVerifier` — Parsing von `Signature`/`Signature-Input`
       Headern, Multi-Signature-Support, Zeitfenster (`created`/`expires`) mit
-      konfigurierbarem Clock Skew
-- [ ] **Content-Digest (RFC 9530):** `sha-256`/`sha-512` Digest-Erzeugung und
+      konfigurierbarem Clock Skew, MaxAge, Required Components, alg/key-Mismatch-Schutz
+- [x] **Content-Digest (RFC 9530):** `sha-256`/`sha-512` Digest-Erzeugung und
       -Verifikation, Integration in die Signature Base
-- [ ] **ASP.NET Core Middleware:** `UseHttpMessageSignatureVerification()` +
-      `DelegatingHandler` für `HttpClient` (automatisches Signieren ausgehender Requests)
-- [ ] **Key-Abstraktion:** `ISigningKey` / `IVerificationKeyResolver` (Vorbereitung
-      für JWK-Anbindung in Phase 1, ohne Abhängigkeit darauf)
+- [x] **ASP.NET Core Middleware:** `UseHttpMessageSignatureVerification()` +
+      `HttpSignatureDelegatingHandler` für `HttpClient` (automatisches Signieren
+      inkl. Content-Digest ausgehender Requests)
+- [x] **Key-Abstraktion:** `SignatureAlgorithm` / `IVerificationKeyResolver` +
+      `PemKeyLoader` (inkl. RSASSA-PSS-OID-PKCS#8-Workaround; JWK folgt in Phase 1)
+- [x] **Beispiel-Apps für manuelles Testen:** `examples/HttpSignatures.Demo`
+      (Vektoren + Live-Demo in einem Prozess), `examples/VerifyingServer`
+      (eigenständiger Kestrel-RS) und `examples/SigningClient` (CLI-Client, druckt
+      Signature Base und Header)
 
 ### Tests
 
-- [ ] Alle Test-Vektoren aus RFC 9421 **Appendix B** (B.1 Beispiel-Keys, B.2.1–B.2.6
-      Signaturen, B.3 TLS-terminierender Proxy, B.4 Header-Reordering)
-- [ ] Roundtrip: Sign → Verify für alle Algorithmen
-- [ ] Negative Tests: manipulierte Komponenten, abgelaufene `expires`, falscher `keyid`,
-      fehlender Content-Digest, Signature-Base-Mismatch
-- [ ] Content-Digest-Vektoren aus RFC 9530
+- [x] Alle Test-Vektoren aus RFC 9421 **Appendix B** (B.1 Beispiel-Keys, B.2.1–B.2.6
+      Signaturen, B.3 TLS-terminierender Proxy, B.4 Header-Reordering/Transformationen)
+- [x] Roundtrip: Sign → Verify für alle Algorithmen
+- [x] Negative Tests: manipulierte Komponenten, abgelaufene `expires`, falscher `keyid`,
+      fehlender Content-Digest, Signature-Base-Mismatch, alg-Downgrade, `created` in
+      Zukunft, MaxAge, Required Components
+- [x] Content-Digest-Vektoren aus RFC 9530
 - [ ] Property-based Tests (FsCheck): beliebige Header-Kombinationen ergeben
       deterministische Signature Base
 
 ### Akzeptanzkriterien
 
-- ✅ 100 % der RFC 9421 Appendix-B-Vektoren grün
-- ✅ Package baut ohne GNAP-Abhängigkeiten (eigenständig veröffentlichbar)
-- ✅ Mutation Score (Stryker.NET) ≥ 90 % auf `SignatureBaseBuilder` und Verifier
+- [x] 100 % der RFC 9421 Appendix-B-Vektoren grün (116 Tests insgesamt)
+- [x] Package baut ohne GNAP-Abhängigkeiten (eigenständig veröffentlichbar)
+- [ ] Mutation Score (Stryker.NET) ≥ 90 % auf `SignatureBaseBuilder` und Verifier
+      (Stryker-Lauf steht noch aus — geplant mit Phase 6 CI-Ausbau)
+
+> **Hinweis zur Umsetzung:** Der Test-Vektor `test-response` verwendet den
+> korrigierten Content-Digest (`mEWX…`) der finalen RFC-Fassung; ältere Drafts
+> enthielten dort einen veralteten Wert, der nicht zur B.2.4-Signatur passt.
 
 ---
 
