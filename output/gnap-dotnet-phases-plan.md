@@ -123,7 +123,7 @@ das RFC 9421 vollständig implementiert und unabhängig von GNAP nutzbar ist.
       fehlender Content-Digest, Signature-Base-Mismatch, alg-Downgrade, `created` in
       Zukunft, MaxAge, Required Components
 - [x] Content-Digest-Vektoren aus RFC 9530
-- [ ] Property-based Tests (FsCheck): beliebige Header-Kombinationen ergeben
+- [x] Property-based Tests (FsCheck): beliebige Header-Kombinationen ergeben
       deterministische Signature Base
 
 ### Akzeptanzkriterien
