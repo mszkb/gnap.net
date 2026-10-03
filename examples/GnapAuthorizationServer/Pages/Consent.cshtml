@@ -28,7 +28,15 @@ else
     @foreach (var right in token.Access ?? [])
     {
       <li>
-        @if (right.IsReference)
+        @if (right.IsReference && Model.ResolvedReferences.TryGetValue(right.Reference!, out var resolved))
+        {
+          @foreach (var r in resolved)
+          {
+            <strong>@r.Type</strong> @string.Join(", ", r.Actions ?? [])
+          }
+          <small>(resource set <code>@right.Reference</code>)</small>
+        }
+        else if (right.IsReference)
         {
           <code>@right.Reference</code>
         }

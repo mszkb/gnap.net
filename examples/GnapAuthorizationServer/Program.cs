@@ -1,6 +1,9 @@
 using GnapAuthorizationServer;
 using GnapAuthorizationServer.Storage;
 using Gnap.AspNetCore.AuthorizationServer;
+using Gnap.AspNetCore.AuthorizationServer.Stores;
+using Gnap.Core.Json;
+using Gnap.Core.Keys;
 using Gnap.Core.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,8 +12,23 @@ using Microsoft.EntityFrameworkCore;
 //  - a Razor Pages consent UI at /consent (the reference IGnapInteractionService client),
 //  - grants, tokens and client instances persisted with EF Core (SQLite),
 //  - a demo policy: registered client instances are approved directly,
-//    everybody else needs the resource owner's consent.
+//    everybody else needs the resource owner's consent,
+//  - resource servers registered from configuration for RFC 9767 introspection:
+//    ResourceServers:0:Id = "demo-rs", ResourceServers:0:Jwk = "{ public JWK JSON }"
+//    (see examples/docker-compose.yml).
 var builder = WebApplication.CreateBuilder(args);
+
+var resourceServers = new InMemoryResourceServerStore();
+foreach (var rs in builder.Configuration.GetSection("ResourceServers").GetChildren())
+{
+    var jwk = System.Text.Json.JsonSerializer.Deserialize(rs["Jwk"] ?? "null", GnapJsonContext.Default.JsonWebKey)
+        ?? throw new InvalidOperationException($"ResourceServers:{rs.Key}:Jwk is missing.");
+    resourceServers.Add(new ResourceServerRegistration
+    {
+        Id = rs["Id"] ?? throw new InvalidOperationException($"ResourceServers:{rs.Key}:Id is missing."),
+        Key = GnapKey.ForHttpSig(jwk.ToPublicKey()),
+    });
+}
 
 builder.Services.AddRazorPages();
 builder.Services.AddDbContext<GnapDbContext>(options =>
@@ -25,6 +43,7 @@ builder.Services
     .AddGrantStore<EfGrantStore>()
     .AddTokenStore<EfTokenStore>()
     .AddClientKeyStore<EfClientKeyStore>()
+    .AddResourceServerStore(resourceServers)
     .AddGrantPolicy<DemoGrantPolicy>();
 
 var app = builder.Build();

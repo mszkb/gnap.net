@@ -1,0 +1,78 @@
+# A complete GNAP stack built from the example applications:
+#
+#   authorization-server  http://localhost:5100  Gnap.AspNetCore AS, Razor consent UI, EF Core/SQLite
+#   resource-server       http://localhost:5200  GNAP-protected minimal API (GET /photos)
+#   web-client            http://localhost:5300  redirect flow in a web app
+#   console-client        (no port)              user code flow; prints a code to enter in the browser
+#
+#   docker compose -f examples/docker-compose.yml up --build
+#
+# All services share the network namespace of the authorization server, so every URL is
+# http://localhost:<port> for the containers and for your browser alike (the AS builds its
+# interaction URIs from the request origin, and the grant endpoint URI enters the finish hash).
+#
+# DEMO ONLY: the resource server key below is a throwaway key published in this repository,
+# the AS approves whatever the "resource owner" types as a user name, and everything is HTTP.
+name: gnap-example
+
+x-build: &build
+  context: ..
+  dockerfile: examples/Dockerfile
+
+services:
+  authorization-server:
+    build:
+      <<: *build
+      args:
+        PROJECT: GnapAuthorizationServer
+    ports:
+      - "5100:5100"
+      - "5200:5200"
+      - "5300:5300"
+    environment:
+      ASPNETCORE_URLS: http://+:5100
+      ConnectionStrings__Gnap: Data Source=/tmp/gnap-as.db
+      # The resource server, registered for RFC 9767 introspection (public key only).
+      ResourceServers__0__Id: demo-rs
+      ResourceServers__0__Jwk: >-
+        {"kty":"EC","crv":"P-256","kid":"demo-rs","x":"n79Lezu9h2nFG6_HurqeZ7p0gjiU8NQjVLOi9_sBCvc","y":"IhanmT9ReUwOvESp_KWZcyNnKwVzLmUwGKSDPZyUXoM"}
+
+  resource-server:
+    build:
+      <<: *build
+      args:
+        PROJECT: GnapResourceServer
+    network_mode: service:authorization-server
+    depends_on:
+      - authorization-server
+    environment:
+      ASPNETCORE_URLS: http://+:5200
+      Gnap__AuthorizationServer: http://localhost:5100
+      Gnap__ResourceServerId: demo-rs
+      Gnap__SigningKey: >-
+        {"kty":"EC","crv":"P-256","kid":"demo-rs","x":"n79Lezu9h2nFG6_HurqeZ7p0gjiU8NQjVLOi9_sBCvc","y":"IhanmT9ReUwOvESp_KWZcyNnKwVzLmUwGKSDPZyUXoM","d":"uq2RFBqXKey0b1kseqJZ6_K_Cgykcvk9gALRv1LgShk"}
+
+  web-client:
+    build:
+      <<: *build
+      args:
+        PROJECT: GnapWebClient
+    network_mode: service:authorization-server
+    depends_on:
+      - authorization-server
+    environment:
+      ASPNETCORE_URLS: http://+:5300
+      PublicUrl: http://localhost:5300
+      Gnap__GrantEndpoint: http://localhost:5100/gnap/tx
+      Gnap__Resource: http://localhost:5200/photos
+
+  console-client:
+    build:
+      <<: *build
+      args:
+        PROJECT: GnapConsoleClient
+    network_mode: service:authorization-server
+    depends_on:
+      - resource-server
+    environment:
+      RESOURCE_URL: http://localhost:5200/photos

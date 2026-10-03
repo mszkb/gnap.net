@@ -56,6 +56,10 @@ implementations (see [docs/interop.md](docs/interop.md)):
 | `examples/VerifyingServer` | Standalone Kestrel resource server protected by the verification middleware |
 | `examples/SigningClient` | CLI that signs requests, prints the signature base/headers and calls any URL |
 | `examples/GnapAuthorizationServer` | A runnable GNAP AS: `Gnap.AspNetCore` endpoints, Razor Pages consent UI (reference `IGnapInteractionService` client), EF Core/SQLite stores, a demo policy |
+| `examples/GnapResourceServer` | GNAP-protected minimal API (`GET /photos`), introspection at the example AS, resource set registration and `WWW-Authenticate: GNAP` challenge |
+| `examples/GnapConsoleClient` | CLI client: RS-first discovery, user code flow, polling, key-bound call to the RS |
+| `examples/GnapWebClient` | ASP.NET Core web app as GNAP client with the redirect flow |
+| `examples/docker-compose.yml` | The four GNAP examples as one stack: `docker compose -f examples/docker-compose.yml up --build` (see [examples/README.md](examples/README.md)) |
 | `examples/GnapCore.Demo` | Guided GNAP walkthrough: JWKs and thumbprints, grant-request JSON, key proofing (incl. replay/tamper rejection), finish-hash vectors, and a live signed grant negotiation against an in-process mini AS |
 
 Requires the **.NET 10 SDK**.
@@ -189,6 +193,17 @@ See [docs/gnap-resource-server.md](docs/gnap-resource-server.md) for token
 validation modes, introspection caching, authorization and error semantics.
 
 ## Building & testing
+
+A complete GNAP stack (authorization server with consent UI, resource server, web
+client, console client) runs with Docker:
+
+```bash
+docker compose -f examples/docker-compose.yml up --build
+# console client log: "Open http://localhost:5100/gnap/device ... enter the code: ..."
+# web client: http://localhost:5300
+```
+
+See [examples/README.md](examples/README.md). Without Docker:
 
 ```bash
 dotnet test                                        # full suite incl. RFC 9421 vectors

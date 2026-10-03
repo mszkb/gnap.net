@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+artifacts/
+TestResults/
+StrykerOutput/
+.git/
+.claude/
+interop/
+output/

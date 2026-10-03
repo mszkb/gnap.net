@@ -92,3 +92,25 @@ jobs:
           name: test-results-${{ matrix.os }}
           path: TestResults
           retention-days: 14
+
+  examples:
+    name: Example stack (docker compose)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and start the stack
+        run: docker compose -f examples/docker-compose.yml up --build --detach
+
+      - name: Console client (user code) and web client (redirect) flows
+        run: examples/e2e.sh
+
+      - name: Logs
+        if: always()
+        run: docker compose -f examples/docker-compose.yml logs --no-color
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose -f examples/docker-compose.yml down

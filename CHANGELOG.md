@@ -34,6 +34,8 @@ First public release, planned as `0.1.0`.
   validation, `RequireGnapAccess` policies).
 - Interoperability verified against Rafiki (Interledger), gnap-client-php and two
   JavaScript HTTP signature libraries.
+- Example GNAP stack for `docker compose up`: authorization server with consent UI,
+  resource server, web client (redirect flow) and console client (user code flow).
 - NuGet packaging with Source Link, deterministic builds, symbol packages and package
   READMEs; CI with coverage gate, CodeQL, mutation testing and a tag-driven release
   workflow.
