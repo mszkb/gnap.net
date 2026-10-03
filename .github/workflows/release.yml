@@ -1,0 +1,148 @@
+name: Release
+
+# Publishes the five gnap.net packages to nuget.org when a version tag is pushed:
+#
+#   git tag -a v0.1.0 -m "gnap.net 0.1.0" && git push origin v0.1.0
+#
+# Tags must be SemVer 2.0 with a leading "v" (v1.2.3, v1.2.3-preview.1). The package version is
+# taken from the tag. Requires the repository secret NUGET_API_KEY (see docs/releasing.md).
+# A manual run (workflow_dispatch) builds, tests and packs, but only pushes when "publish" is set.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version (SemVer, without "v"), e.g. 0.1.0-preview.1
+        required: true
+      publish:
+        description: Push the packages to nuget.org
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  pack:
+    name: Build, test & pack
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Determine version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$INPUT_VERSION"
+          fi
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if ! [[ "$version" =~ $semver ]]; then
+            echo "::error::'$version' is not a SemVer 2.0 version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing version $version"
+
+      - name: Restore
+        run: dotnet restore Gnap.sln
+
+      - name: Build
+        run: dotnet build Gnap.sln --no-restore --configuration Release -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Test
+        run: dotnet test Gnap.sln --no-build --configuration Release
+
+      - name: Pack
+        run: >
+          dotnet pack build/Gnap.Packages.slnf --no-build --configuration Release
+          -p:Version=${{ steps.version.outputs.version }}
+          --output artifacts/packages
+
+      - name: Check package contents
+        run: |
+          ls -l artifacts/packages
+          for id in Gnap.HttpMessageSignatures Gnap.HttpMessageSignatures.AspNetCore Gnap.Core Gnap.Client Gnap.AspNetCore; do
+            pkg="artifacts/packages/$id.${{ steps.version.outputs.version }}.nupkg"
+            test -f "$pkg" || { echo "::error::missing $pkg"; exit 1; }
+            test -f "${pkg%.nupkg}.snupkg" || { echo "::error::missing symbols for $id"; exit 1; }
+            unzip -l "$pkg" | grep -q ' README.md$' || { echo "::error::$id has no README"; exit 1; }
+            unzip -p "$pkg" "$id.nuspec" | grep -q "commit=\"$GITHUB_SHA\"" || { echo "::error::$id has no Source Link commit"; exit 1; }
+          done
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ steps.version.outputs.version }}
+          path: artifacts/packages
+          retention-days: 90
+
+  publish:
+    name: Push to nuget.org
+    needs: pack
+    if: github.ref_type == 'tag' || inputs.publish
+    runs-on: ubuntu-latest
+    environment: nuget
+    permissions:
+      contents: write # attach the packages to the GitHub release
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-${{ needs.pack.outputs.version }}
+          path: artifacts/packages
+
+      - name: Push packages and symbols
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::The NUGET_API_KEY secret is not configured (see docs/releasing.md)"
+            exit 1
+          fi
+          # Pushing a .nupkg also pushes the matching .snupkg to the symbol server.
+          dotnet nuget push "artifacts/packages/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Create GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.pack.outputs.version }}
+        run: |
+          prerelease=""
+          case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" artifacts/packages/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "gnap.net $VERSION" \
+            --notes "Packages published to nuget.org. See [CHANGELOG.md](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/CHANGELOG.md)." \
+            $prerelease

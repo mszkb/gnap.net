@@ -7,6 +7,16 @@ on:
       - 'claude/**'
   pull_request:
 
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # Coverage gate (line / branch %, over the five library assemblies). Current: ~89 / ~80.
+  MIN_LINE_COVERAGE: 85
+  MIN_BRANCH_COVERAGE: 75
+
 jobs:
   test:
     name: Build & Test (${{ matrix.os }})
@@ -46,6 +56,34 @@ jobs:
         run: |
           dotnet publish tests/Gnap.Core.AotSmoke --configuration Release -r linux-x64 -o artifacts/aot-smoke
           ./artifacts/aot-smoke/Gnap.Core.AotSmoke
+
+      - name: Coverage report and gate
+        if: runner.os == 'Linux'
+        run: |
+          dotnet tool restore
+          dotnet reportgenerator \
+            -reports:"TestResults/**/coverage.cobertura.xml" \
+            -targetdir:TestResults/coverage \
+            -reporttypes:"JsonSummary;MarkdownSummaryGithub;Cobertura;TextSummary" \
+            -assemblyfilters:"+Gnap.HttpMessageSignatures;+Gnap.HttpMessageSignatures.AspNetCore;+Gnap.Core;+Gnap.Client;+Gnap.AspNetCore"
+          cat TestResults/coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+          line=$(jq '.summary.linecoverage' TestResults/coverage/Summary.json)
+          branch=$(jq '.summary.branchcoverage' TestResults/coverage/Summary.json)
+          echo "Line coverage: $line % (min $MIN_LINE_COVERAGE), branch coverage: $branch % (min $MIN_BRANCH_COVERAGE)"
+          awk -v l="$line" -v b="$branch" -v ml="$MIN_LINE_COVERAGE" -v mb="$MIN_BRANCH_COVERAGE" \
+            'BEGIN { if (l + 0 < ml + 0 || b + 0 < mb + 0) { print "::error::Coverage below the gate"; exit 1 } }'
+
+      - name: Pack NuGet packages
+        if: runner.os == 'Linux'
+        run: dotnet pack build/Gnap.Packages.slnf --no-build --configuration Release --output artifacts/packages
+
+      - name: Upload packages
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/packages
+          retention-days: 14
 
       - name: Upload test results
         if: always()

@@ -2,8 +2,18 @@ name: Mutation testing
 
 on:
   workflow_dispatch:
+  # Gate on pull requests that touch the mutation-tested crypto code (scope: stryker-config.json).
+  pull_request:
+    paths:
+      - 'src/Gnap.HttpMessageSignatures/**'
+      - 'tests/Gnap.HttpMessageSignatures.Tests/**'
+      - 'stryker-config.json'
+      - '.config/dotnet-tools.json'
   schedule:
     - cron: '17 3 * * *' # nightly
+
+permissions:
+  contents: read
 
 jobs:
   stryker:
