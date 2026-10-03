@@ -414,22 +414,30 @@ GNAP-Token-Verifikation in einer Zeile Middleware.
 
 ### Aufgaben
 
-- [ ] **Docker-Compose-Setups:**
-  - [ ] `interop/rafiki/` — Rafiki AS + .NET Client
-  - [ ] `interop/php-client/` — PHP Client + .NET AS
-- [ ] Interop-Testsuite als eigenes xUnit-Projekt mit `docker compose`-Fixture
-- [ ] **RFC 9635 Conformance Checklist:** Markdown-Matrix (MUST/SHOULD/MAY ×
-      Client/AS/RS) mit Verweis auf den jeweiligen Test
-- [ ] Abweichungen/Bugs dokumentieren, ggf. Issues upstream melden
+- [x] **Interop-Setups** (Ergebnisse: `docs/interop.md`):
+  - [x] `interop/rafiki/` — Rafiki AS (docker compose: Postgres, Redis,
+        `rafiki-auth`) + .NET Client (`interop/run-rafiki.sh`)
+  - [x] `interop/php-client/` — PHP Client + .NET AS (`interop/run-php-client.sh`;
+        läuft nativ mit PHP/Composer, kein Container nötig)
+  - [x] `interop/signatures/` — JS-Signatur-Implementierungen (`interop/run-signatures.sh`)
+- [x] Interop-Testsuite als eigenes xUnit-Projekt (`tests/Gnap.Interop.Tests`,
+      per Umgebungsvariable aktiviert; Compose-Lifecycle im Run-Skript statt
+      xUnit-Fixture)
+- [x] **RFC 9635 Conformance Checklist:** MUST-Matrix × Client/AS/RS mit Verweis
+      auf den jeweiligen Test (`docs/interop.md`); SHOULD/MAY noch nicht tabelliert
+- [x] Abweichungen/Bugs dokumentieren (3 Interop-Bugs in gnap.net gefunden und
+      behoben, Abweichungen von Rafiki und gnap-client-php dokumentiert)
+- [ ] Issues upstream melden (Rafiki, gnap-client-php) — Entwürfe in `docs/interop.md`
 
 ### Tests
 
-- [ ] **.NET Client → Rafiki AS:** Grant Request, Interaction, Continuation,
-      Token-Nutzung gegen Open-Payments-Ressource
-- [ ] **PHP Client → .NET AS:** vollständiger Redirect-Flow
-- [ ] **HTTP-Message-Signature-Kompatibilität:** Kreuzweise Signatur-Verifikation
+- [x] **.NET Client → Rafiki AS:** Grant Request, Interaction, Continuation,
+      Token-Nutzung (Introspektion, Rotation, Revocation über Rafiki; kein
+      Open-Payments-Resource-Server im Setup)
+- [x] **PHP Client → .NET AS:** vollständiger Redirect-Flow (`sha-256`, `sha3-512`)
+- [x] **HTTP-Message-Signature-Kompatibilität:** Kreuzweise Signatur-Verifikation
       (unsere Signaturen ↔ fremde Verifier und umgekehrt), Ed25519 + ECDSA
-- [ ] Edge Cases: unterschiedliche `content-digest`-Algorithmen, Header-Casing,
+- [x] Edge Cases: unterschiedliche `content-digest`-Algorithmen, Header-Casing,
       Query-Encoding
 
 ### Akzeptanzkriterien
@@ -458,7 +466,7 @@ GNAP-Token-Verifikation in einer Zeile Middleware.
 - [ ] **CI/CD (GitHub Actions):**
   - [ ] Build + Test-Matrix (Linux/Windows), Coverage-Gate
   - [ ] CodeQL (C#) auf jedem PR
-  - [ ] Nightly Interop-Runs (Phase 5)
+  - [x] Nightly Interop-Runs (Phase 5) — `.github/workflows/interop.yml`
   - [ ] Release-Workflow: Tag → Pack → Push nach NuGet.org
 - [ ] **Stryker.NET Mutation Testing** für Krypto-Logik (Phase 0 + Key Proofing)
       als CI-Gate (Phase 0 bereits nightly/manuell mit `--break-at 90`;

@@ -16,13 +16,24 @@ New here? Two plain-language guides build the concepts up from zero:
   embedding the AS in ASP.NET Core with `Gnap.AspNetCore` (Phase 3)
 - **[Protecting an API with GNAP](docs/gnap-resource-server.md)** — the resource
   server middleware of `Gnap.AspNetCore` (Phase 4)
+- **[Interoperability](docs/interop.md)** — tested against Rafiki (Interledger),
+  gnap-client-php and two JavaScript HTTP signature implementations; interop matrix,
+  findings and the RFC 9635 conformance checklist (Phase 5)
 
 ## Status
 
 **Phase 0 — HTTP Message Signatures (RFC 9421)**,
 **Phase 1 — GNAP Core Primitives**, **Phase 2 — Client Library**,
 **Phase 3 — Authorization Server** and **Phase 4 — Resource Server Middleware** are
-implemented:
+implemented, and **Phase 5 — Interoperability** is verified against independent
+implementations (see [docs/interop.md](docs/interop.md)):
+
+| Peer | Flow | Status |
+|------|------|--------|
+| Rafiki auth server (TypeScript, Open Payments) | `Gnap.Client` → Rafiki: grant, redirect interaction + finish hash, continuation, introspection, token rotation/revocation | ✅ nightly |
+| aaronpk/gnap-client-php | PHP client → `Gnap.AspNetCore` AS: full redirect flow (`sha-256`, `sha3-512`) | ✅ nightly (2-line RFC 9635 patch to the 2022 client) |
+| http-message-signatures, @interledger/http-signature-utils (JS) | signatures both ways, Ed25519 + ECDSA P-256, `sha-256`/`sha-512` digests | ✅ nightly |
+
 
 | Project | Contents |
 |---------|----------|
@@ -32,9 +43,10 @@ implemented:
 | `src/Gnap.Client` | GNAP client without ASP.NET Core dependency: AS discovery (`OPTIONS` on the grant endpoint, `/.well-known/gnap-as-rs`, RS `WWW-Authenticate` challenge) with metadata caching, httpsig-signed grant requests (key by value/reference, instance id), redirect/push/user-code interaction with finish-hash verification, continuation and polling (`wait`, `too_fast` back-off, rotating continuation tokens), 5xx retries with fresh signatures, token rotation/revocation/key rotation, self-refreshing tokens and an `HttpClient` handler for RS calls, typed GNAP errors, `services.AddGnapClient(...)` |
 | `src/Gnap.AspNetCore` | **Resource server:** `AddGnapResourceServer()` + `UseGnapResourceServer()` — `Authorization: GNAP` authentication handler that verifies the `httpsig` key proof of key-bound tokens against the bound key (content digest, nonce replay protection; bearer opt-in), token validation by cached RFC 9767 introspection, the co-hosted AS token store or local JWT verification, `RequireGnapAccess("type", "action")` policies, `IGnapTokenFeature`, RFC-conformant 401/403 with `WWW-Authenticate: GNAP as_uri, access` challenge, RFC 9767 discovery and resource set registration. **Authorization server:** embeddable GNAP AS: grant endpoint with httpsig key proof verification and nonce replay protection, grant state machine, redirect and user-code interaction with browser session binding and redirect/push finish, continuation (rotating key-bound continuation tokens, `wait`, single-use `interact_ref`), key-bound and bearer tokens with pluggable `ITokenFormat` (opaque, JWT), multi-token responses, token rotation/key rotation/revocation, RFC 9767 introspection and resource registration with RS authentication, discovery; deny-by-default `IGrantPolicy`, `IGrantStore`/`ITokenStore`/`IClientKeyStore`/`IResourceServerStore` with in-memory defaults, all replaceable via DI |
 | `tests/Gnap.HttpMessageSignatures.Tests` | 224 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) and FsCheck property tests (deterministic signature base, header order/casing invariance, sign→verify for all algorithms, tamper sensitivity, RFC 8941 and `@query-param` codec roundtrips) |
-| `tests/Gnap.Core.Tests` | 108 tests: RFC 7638/8037 thumbprint vectors, RFC 9635 §4.2.3 finish-hash vectors, key-proof negative tests (wrong key, tampered body/method/URI/token, replay, wrong tag/alg/keyid/digest, stale), JSON round-trips with unknown-member tolerance |
-| `tests/Gnap.Client.Tests` | 93 tests against an in-memory mock AS that verifies the signature of **every** client request with the Phase 0/1 verifier (nonce replay protection on): full redirect/push/user-code flows, all 13 registered error codes, `user_denied`/`too_fast`/`unknown_interaction`, 5xx retry, finish hash valid/tampered/missing/replayed, token expiry → rotation, key rotation, discovery caching, DI |
+| `tests/Gnap.Core.Tests` | 118 tests: RFC 7638/8037 thumbprint vectors, RFC 9635 §4.2.3 finish-hash vectors, key-proof negative tests (wrong key, tampered body/method/URI/token, replay, wrong tag/alg/keyid/digest, stale), JSON round-trips with unknown-member tolerance |
+| `tests/Gnap.Client.Tests` | 94 tests against an in-memory mock AS that verifies the signature of **every** client request with the Phase 0/1 verifier (nonce replay protection on): full redirect/push/user-code flows, all 13 registered error codes, `user_denied`/`too_fast`/`unknown_interaction`, 5xx retry, finish hash valid/tampered/missing/replayed, token expiry → rotation, key rotation, discovery caching, DI |
 | `tests/Gnap.AspNetCore.Tests` | 169 tests: **four-role end-to-end flows** (client → AS with RO consent → RS → protected resource, RS-first discovery via the challenge) for introspection, co-hosted token store and JWT validation; key-proof negative tests for every validation mode (unsigned, wrong key, stolen token, tampered body/digest, swapped token, stale, no nonce, replay), expired/revoked tokens, introspection cache hit/miss/expiry/invalidation, bearer opt-in, 401/403 challenges, resource registration, JWT forgery tests; plus the unmodified Phase 2 client against the real AS on a `TestServer` (redirect/push/user-code flows with simulated consent, polling, multi-token, bearer, rotation, key rotation, revocation, instance ids, key references, discovery, JWT tokens), security negative tests (replay, stale signatures, foreign/rotated/expired/unknown continuation with byte-identical errors, tampered and reused `interact_ref`, key mismatch, session binding, single-use user codes, concurrent continuations), policy, state machine, introspection and DI tests, plus the example AS via `WebApplicationFactory` (Razor consent form, EF Core) |
+| `tests/Gnap.Interop.Tests` | 14 cross-implementation tests (skipped unless the peer is configured): `Gnap.Client` against Rafiki, gnap-client-php against `Gnap.AspNetCore`, HTTP signature cross-verification with two JavaScript libraries; driven by `interop/run-*.sh` and the nightly Interop workflow |
 | `tests/Gnap.Core.AotSmoke` | Native AOT smoke test: publishes Gnap.Core and Gnap.Client as a native binary (trim/AOT warnings are errors) and exercises JSON, JWK, proofing and a signed client grant at runtime |
 | `examples/HttpSignatures.Demo` | Self-contained test bed: vector checks plus a live signed-client-against-Kestrel demo |
 | `examples/VerifyingServer` | Standalone Kestrel resource server protected by the verification middleware |
@@ -209,7 +221,9 @@ the documented equivalent mutants.
 
 GitHub Actions builds and tests on Linux and Windows for every push and pull
 request (`.github/workflows/ci.yml`). Mutation testing runs nightly and on
-demand (`.github/workflows/mutation.yml`, `--break-at 90`).
+demand (`.github/workflows/mutation.yml`, `--break-at 90`). Interoperability tests
+against Rafiki, gnap-client-php and the JavaScript signature libraries run nightly
+and on demand (`.github/workflows/interop.yml`, see [docs/interop.md](docs/interop.md)).
 
 ## License
 
