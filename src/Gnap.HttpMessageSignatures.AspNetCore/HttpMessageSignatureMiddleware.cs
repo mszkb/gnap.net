@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -24,12 +25,18 @@ public sealed class HttpMessageSignatureOptions
 
     /// <summary>
     /// Whether a request with a body must carry a valid <c>Content-Digest</c> field.
-    /// The body is buffered up to <see cref="MaxBufferedContentLength"/> to check it.
+    /// The body is buffered up to <see cref="MaxBufferedContentLength"/> to check it,
+    /// and only after the signature itself has been verified.
     /// Defaults to <see langword="true"/>.
     /// </summary>
     public bool RequireContentDigestForBodies { get; set; } = true;
 
-    /// <summary>The largest body buffered for digest validation. Defaults to 1 MiB.</summary>
+    /// <summary>
+    /// The largest body buffered for digest validation. Defaults to 1 MiB. The
+    /// limit is enforced while reading, so it also applies to bodies without a
+    /// <c>Content-Length</c> (e.g. <c>Transfer-Encoding: chunked</c>, HTTP/2);
+    /// larger bodies are rejected with 401.
+    /// </summary>
     public long MaxBufferedContentLength { get; set; } = 1024 * 1024;
 
     /// <summary>Paths (exact prefix match) excluded from signature verification.</summary>
@@ -91,13 +98,9 @@ public sealed class HttpMessageSignatureMiddleware
             }
         }
 
-        var digestFailure = await ValidateContentDigestAsync(context).ConfigureAwait(false);
-        if (digestFailure is not null)
-        {
-            await RejectAsync(context, digestFailure).ConfigureAwait(false);
-            return;
-        }
-
+        // Verify the signature first: it covers only header fields (including
+        // Content-Digest, if present), so no body bytes are read on behalf of a
+        // request that is not authenticated.
         var result = await _verifier
             .VerifyAsync(new AspNetCoreRequestContext(context.Request), cancellationToken: context.RequestAborted)
             .ConfigureAwait(false);
@@ -108,6 +111,13 @@ public sealed class HttpMessageSignatureMiddleware
             return;
         }
 
+        var digestFailure = await ValidateContentDigestAsync(context).ConfigureAwait(false);
+        if (digestFailure is not null)
+        {
+            await RejectAsync(context, digestFailure).ConfigureAwait(false);
+            return;
+        }
+
         context.Features.Set<IHttpMessageSignatureFeature>(new SignatureFeature(result));
         await _next(context).ConfigureAwait(false);
     }
@@ -115,7 +125,13 @@ public sealed class HttpMessageSignatureMiddleware
     private async Task<string?> ValidateContentDigestAsync(HttpContext context)
     {
         var request = context.Request;
-        var hasBody = request.ContentLength is > 0 || request.Headers.TransferEncoding.Count > 0;
+        var hasBody = context.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody
+            ?? (request.ContentLength is > 0 || request.Headers.TransferEncoding.Count > 0);
+        if (request.ContentLength == 0)
+        {
+            hasBody = false;
+        }
+
         var digestHeader = request.Headers["Content-Digest"];
 
         if (!hasBody && digestHeader.Count == 0)
@@ -130,20 +146,25 @@ public sealed class HttpMessageSignatureMiddleware
                 : null;
         }
 
-        if (request.ContentLength is { } length && length > _options.MaxBufferedContentLength)
+        var limit = Math.Max(0, _options.MaxBufferedContentLength);
+        if (request.ContentLength is { } length && length > limit)
         {
             return "the request body exceeds the digest validation buffer limit";
         }
 
-        request.EnableBuffering(bufferThreshold: (int)Math.Min(_options.MaxBufferedContentLength, int.MaxValue));
-        using var buffer = new MemoryStream();
-        await request.Body.CopyToAsync(buffer, context.RequestAborted).ConfigureAwait(false);
+        // Without a Content-Length (chunked, HTTP/2) the size is unknown up front;
+        // ValidateAsync counts while hashing and stops one byte past the limit, so
+        // at most limit + 1 bytes are ever buffered.
+        request.EnableBuffering(bufferThreshold: (int)Math.Min(limit, int.MaxValue));
+        var validation = await ContentDigest
+            .ValidateAsync(string.Join(", ", digestHeader.Where(v => v is not null)), request.Body, limit, context.RequestAborted)
+            .ConfigureAwait(false);
         request.Body.Position = 0;
 
-        var validation = ContentDigest.Validate(string.Join(", ", digestHeader.Where(v => v is not null)), buffer.ToArray());
         return validation switch
         {
             ContentDigestValidation.Valid => null,
+            ContentDigestValidation.ContentTooLarge => "the request body exceeds the digest validation buffer limit",
             ContentDigestValidation.Mismatch => "the Content-Digest does not match the request body",
             ContentDigestValidation.NoSupportedAlgorithm => "the Content-Digest uses no supported algorithm",
             _ => "the Content-Digest field is malformed",

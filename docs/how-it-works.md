@@ -269,8 +269,14 @@ middleware wrapping it) does the reverse:
    bytes → valid or not.
 
 The middleware additionally validates `Content-Digest` against the actual
-body bytes *before* signature verification, and buffers/rewinds the body so
-your endpoint can still read it normally.
+body bytes *after* the signature has been verified (the signature covers the
+`Content-Digest` header, not the body, so it can be checked first). Requests
+that are not authenticated are therefore rejected without reading a single
+body byte. The body is hashed incrementally while it is read and buffered
+(and rewound, so your endpoint can still read it normally) only up to
+`MaxBufferedContentLength` (default 1 MiB). The limit is enforced while
+reading, so it also holds for bodies without a `Content-Length`
+(`Transfer-Encoding: chunked`, HTTP/2): anything larger is rejected with 401.
 
 One deliberate design decision: on failure the client gets a **generic 401**.
 The precise reason ("expired", "unknown key", ...) goes to the server log

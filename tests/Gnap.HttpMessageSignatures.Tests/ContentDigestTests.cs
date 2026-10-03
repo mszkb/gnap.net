@@ -62,4 +62,39 @@ public class ContentDigestTests
     {
         Assert.StartsWith("sha-256=:", ContentDigest.CreateHeaderValue(HelloWorldJson), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task StreamingValidation_MatchesSpanValidation()
+    {
+        var value = ContentDigest.CreateHeaderValue(HelloWorldJson, ContentDigestAlgorithm.Sha256, ContentDigestAlgorithm.Sha512);
+
+        Assert.Equal(ContentDigestValidation.Valid, await ContentDigest.ValidateAsync(value, new MemoryStream(HelloWorldJson)));
+        Assert.Equal(ContentDigestValidation.Mismatch, await ContentDigest.ValidateAsync(value, new MemoryStream(Encoding.UTF8.GetBytes("{}"))));
+        Assert.Equal(ContentDigestValidation.Malformed, await ContentDigest.ValidateAsync("sha-256=notbase64", new MemoryStream(HelloWorldJson)));
+        Assert.Equal(
+            ContentDigestValidation.NoSupportedAlgorithm,
+            await ContentDigest.ValidateAsync("md5=:XrY7u+Ae7tCTyyK7j1rNww==:", new MemoryStream(HelloWorldJson)));
+    }
+
+    [Fact]
+    public async Task StreamingValidation_StopsReadingPastTheLimit()
+    {
+        var value = ContentDigest.CreateHeaderValue(HelloWorldJson);
+        var content = new MemoryStream(new byte[100_000]);
+
+        var result = await ContentDigest.ValidateAsync(value, content, maxContentLength: 10);
+
+        Assert.Equal(ContentDigestValidation.ContentTooLarge, result);
+        Assert.Equal(11, content.Position);
+    }
+
+    [Fact]
+    public async Task StreamingValidation_ContentExactlyAtLimit_IsValidated()
+    {
+        var value = ContentDigest.CreateHeaderValue(HelloWorldJson);
+
+        var result = await ContentDigest.ValidateAsync(value, new MemoryStream(HelloWorldJson), maxContentLength: HelloWorldJson.Length);
+
+        Assert.Equal(ContentDigestValidation.Valid, result);
+    }
 }
