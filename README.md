@@ -10,20 +10,24 @@ New here? Two plain-language guides build the concepts up from zero:
   cryptographic foundation (Phase 0)
 - **[GNAP for Dummies](docs/gnap-for-dummies.md)** — the protocol itself:
   roles, keys, key proofing, the interaction dance (Phase 1)
+- **[Using Gnap.Client](docs/gnap-client.md)** — requesting access from a GNAP AS
+  with the client library (Phase 2)
 
 ## Status
 
-**Phase 0 — HTTP Message Signatures (RFC 9421)** and
-**Phase 1 — GNAP Core Primitives** are implemented:
+**Phase 0 — HTTP Message Signatures (RFC 9421)**,
+**Phase 1 — GNAP Core Primitives** and **Phase 2 — Client Library** are implemented:
 
 | Project | Contents |
 |---------|----------|
 | `src/Gnap.HttpMessageSignatures` | RFC 9421 signature base canonicalization, signing/verification (Ed25519, ECDSA P-256/P-384, RSA-PSS, RSA v1.5, HMAC-SHA256), RFC 9530 `Content-Digest`, RFC 8941 structured fields, nonce replay protection (`INonceStore`), PEM key loading, `HttpClient` `DelegatingHandler` |
 | `src/Gnap.HttpMessageSignatures.AspNetCore` | ASP.NET Core middleware verifying signatures and content digests on incoming requests, with optional nonce-based replay protection |
 | `src/Gnap.Core` | RFC 9635 building blocks: `JsonWebKey` (EC/OKP/RSA, RFC 7638 thumbprints, conversion to signing keys), `httpsig` key proofing (string and object form with pinned `alg`/`content-digest-alg`) with nonce replay protection, the interaction finish hash and finish callback (redirect/push), `Authorization: GNAP` token presentation, and source-generated JSON models for grant requests/responses (Native-AOT-verified) |
-| `tests/Gnap.HttpMessageSignatures.Tests` | 213 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) and FsCheck property tests (deterministic signature base, header order/casing invariance, sign→verify for all algorithms, tamper sensitivity, RFC 8941 and `@query-param` codec roundtrips) |
+| `src/Gnap.Client` | GNAP client without ASP.NET Core dependency: AS discovery (`OPTIONS` on the grant endpoint, `/.well-known/gnap-as-rs`, RS `WWW-Authenticate` challenge) with metadata caching, httpsig-signed grant requests (key by value/reference, instance id), redirect/push/user-code interaction with finish-hash verification, continuation and polling (`wait`, `too_fast` back-off, rotating continuation tokens), 5xx retries with fresh signatures, token rotation/revocation/key rotation, self-refreshing tokens and an `HttpClient` handler for RS calls, typed GNAP errors, `services.AddGnapClient(...)` |
+| `tests/Gnap.HttpMessageSignatures.Tests` | 224 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) and FsCheck property tests (deterministic signature base, header order/casing invariance, sign→verify for all algorithms, tamper sensitivity, RFC 8941 and `@query-param` codec roundtrips) |
 | `tests/Gnap.Core.Tests` | 108 tests: RFC 7638/8037 thumbprint vectors, RFC 9635 §4.2.3 finish-hash vectors, key-proof negative tests (wrong key, tampered body/method/URI/token, replay, wrong tag/alg/keyid/digest, stale), JSON round-trips with unknown-member tolerance |
-| `tests/Gnap.Core.AotSmoke` | Native AOT smoke test: publishes Gnap.Core as a native binary (trim/AOT warnings are errors) and exercises JSON, JWK and proofing paths at runtime |
+| `tests/Gnap.Client.Tests` | 93 tests against an in-memory mock AS that verifies the signature of **every** client request with the Phase 0/1 verifier (nonce replay protection on): full redirect/push/user-code flows, all 13 registered error codes, `user_denied`/`too_fast`/`unknown_interaction`, 5xx retry, finish hash valid/tampered/missing/replayed, token expiry → rotation, key rotation, discovery caching, DI |
+| `tests/Gnap.Core.AotSmoke` | Native AOT smoke test: publishes Gnap.Core and Gnap.Client as a native binary (trim/AOT warnings are errors) and exercises JSON, JWK, proofing and a signed client grant at runtime |
 | `examples/HttpSignatures.Demo` | Self-contained test bed: vector checks plus a live signed-client-against-Kestrel demo |
 | `examples/VerifyingServer` | Standalone Kestrel resource server protected by the verification middleware |
 | `examples/SigningClient` | CLI that signs requests, prints the signature base/headers and calls any URL |
@@ -79,6 +83,36 @@ Nonces are recorded only after the signature verified, so forged requests cannot
 "burn" a legitimate client's nonce. `InMemoryNonceStore` suits a single process;
 implement `INonceStore` (atomically) over a shared cache for multi-instance deployments.
 
+Request access as a GNAP client (console app, no ASP.NET Core needed):
+
+```csharp
+using Gnap.Client;
+using Gnap.Client.Interaction;
+using Gnap.Client.Tokens;
+using Gnap.Core.Models;
+
+var client = new GnapClient(new HttpClient(), new GnapClientOptions
+{
+    GrantEndpoint = new Uri("https://as.example/tx"),
+    ClientKey = GnapClientKey.FromJwk(privateJwk),
+});
+
+var result = await client.RequestAccessAsync(
+    [AccessRight.ForReference("photo-api")],
+    GnapInteractionHandler.UserCode((i, _) =>
+    {
+        Console.WriteLine($"Enter {i.UserCode} at the AS");
+        return ValueTask.CompletedTask;
+    }));
+
+// Call the RS: GNAP header + httpsig proof, automatic rotation on expiry.
+var api = new HttpClient(new GnapAccessTokenHandler(
+    client.CreateTokenSource(result.AccessToken!), new SocketsHttpHandler()));
+```
+
+See [docs/gnap-client.md](docs/gnap-client.md) for redirect/push flows, web apps,
+token management, discovery, errors and DI.
+
 ## Building & testing
 
 ```bash
@@ -86,7 +120,7 @@ dotnet test                                        # full suite incl. RFC 9421 v
 dotnet run --project examples/HttpSignatures.Demo  # manual test: vectors + live demo
 dotnet run --project examples/GnapCore.Demo        # GNAP walkthrough + live mini-AS round trip
 
-# Native AOT smoke test for Gnap.Core (needs clang/zlib, as for any Native AOT publish)
+# Native AOT smoke test for Gnap.Core + Gnap.Client (needs clang/zlib, as for any Native AOT publish)
 dotnet publish tests/Gnap.Core.AotSmoke -c Release -r linux-x64 -o artifacts/aot-smoke
 ./artifacts/aot-smoke/Gnap.Core.AotSmoke
 ```

@@ -649,5 +649,5 @@ tokens that carry both the `bearer` flag and a `key`.
 ---
 
 *Previous: [HTTP Message Signatures for Dummies](how-it-works.md) (Phase 0).
-Next up: Phase 2 builds the full client library on top of these primitives —
-see the [implementation plan](../output/gnap-dotnet-phases-plan.md).*
+Next: [Using Gnap.Client](gnap-client.md) — the Phase 2 client library built on
+these primitives. See also the [implementation plan](../output/gnap-dotnet-phases-plan.md).*

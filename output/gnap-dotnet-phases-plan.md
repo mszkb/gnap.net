@@ -219,38 +219,59 @@ RFC-9635-konforme AS funktioniert.
 
 ### Aufgaben
 
-- [ ] **AS-Discovery:** `.well-known/gnap-as-rs` (RFC 9635 §9.1), Caching der
-      AS-Metadaten
-- [ ] **Grant Request Flow:** `POST /tx` mit signiertem Request (httpsig aus Phase 0),
-      `client`-Objekt (Key by value/reference), `access_token`, `subject`, `interact`
-- [ ] **Interaction Handling:**
-  - [ ] Redirect-Flow (Browser-Start, `interact.redirect`)
-  - [ ] User Code / User Code URI (Device-Flow-artig)
-  - [ ] Finish-Callback (`redirect`-Empfang inkl. `hash`-Verifikation, `push`-Empfang)
-- [ ] **Continuation:** `POST {continue.uri}` mit Continuation Access Token,
-      `interact_ref`, Polling mit `wait`-Respektierung und Backoff
-- [ ] **Token Management:** Token Rotation (`POST` auf Token-Management-URI),
-      Revocation (`DELETE`), automatischer Refresh bei Expiry, Key Rotation des Clients
-- [ ] **API-Design:** `GnapClient` (High-Level, `await client.RequestAccessAsync(...)`)
-      + Low-Level-Bausteine; `IHttpClientFactory`-Integration; DI-Extensions
-      `services.AddGnapClient(...)`
+- [x] **AS-Discovery:** `OPTIONS` auf den Grant-Endpoint (RFC 9635 §9),
+      `.well-known/gnap-as-rs` (RFC 9767 §3.1) und RS-first-Discovery über
+      `WWW-Authenticate: GNAP as_uri=…` (RFC 9635 §9.1); Caching der AS-Metadaten
+      (`GnapMetadataCache`, Default 1 h bzw. `Cache-Control: max-age`)
+- [x] **Grant Request Flow:** `POST /tx` mit signiertem Request (httpsig aus Phase 0),
+      `client`-Objekt (Key by value/reference, Instance-ID), `access_token`
+      (inkl. mehrerer gelabelter Tokens, `bearer`), `subject`, `interact`
+- [x] **Interaction Handling:**
+  - [x] Redirect-Flow (Browser-Start via `SystemBrowser`, `interact.redirect`)
+  - [x] User Code / User Code URI (Device-Flow-artig, Polling ohne Finish)
+  - [x] Finish-Callback (`redirect`-Empfang inkl. `hash`-Verifikation, `push`-Empfang;
+        Nonce-Erzeugung, Replay-Schutz, `hash_method`)
+- [x] **Continuation:** `POST {continue.uri}` mit (rotierendem) Continuation Access Token,
+      `interact_ref`, Polling mit `wait`-Respektierung (Default 5 s) und Backoff bei
+      `too_fast`; zusätzlich Grant-Änderung (`PATCH`) und -Abbruch (`DELETE`)
+- [x] **Token Management:** Token Rotation (`POST` auf Token-Management-URI),
+      Revocation (`DELETE`), automatischer Refresh bei Expiry (`GnapTokenSource`,
+      `GnapAccessTokenHandler` inkl. 401-Retry), Key Rotation (RFC 9635 §6.1.2,
+      Doppelsignatur alter + neuer Key) und Wechsel des Client-Keys (`UseClientKey`)
+- [x] **API-Design:** `GnapClient` (High-Level, `await client.RequestAccessAsync(...)`)
+      + Low-Level-Bausteine (`GnapProtocolClient`, `GnapPendingGrant` für Web-Apps);
+      `IHttpClientFactory`-Integration; DI-Extensions `services.AddGnapClient(...)`
 
 ### Tests
 
-- [ ] **Mock AS mit WireMock.Net:** vollständiger Grant → Interaction → Continuation
-      → Token Flow als Integrationstest
-- [ ] Error Scenarios: `invalid_request`, `invalid_client`, `user_denied`,
-      `too_fast` (Polling), `unknown_interaction`, HTTP 5xx mit Retry
-- [ ] Token Expiry → automatischer Refresh/Rotation
-- [ ] Finish-Hash-Verifikation: gültig, manipuliert, fehlend
-- [ ] Signatur jedes ausgehenden Requests wird vom Mock verifiziert (Phase-0-Verifier
-      im Test-Server)
+- [x] **Mock AS:** vollständiger Grant → Interaction → Continuation → Token Flow als
+      Integrationstest (In-Memory-`HttpMessageHandler` statt WireMock.Net, siehe Hinweis)
+- [x] Error Scenarios: `invalid_request`, `invalid_client`, `user_denied`,
+      `too_fast` (Polling), `unknown_interaction`, HTTP 5xx mit Retry — plus alle
+      13 registrierten Codes typisiert (String- und Objekt-Form)
+- [x] Token Expiry → automatischer Refresh/Rotation
+- [x] Finish-Hash-Verifikation: gültig, manipuliert, fehlend (+ wiederholt, Replay, `push`)
+- [x] Signatur jedes ausgehenden Requests wird vom Mock verifiziert (Phase-0/1-Verifier
+      `HttpSigKeyProofValidator` mit Nonce-Store im Test-Server)
 
 ### Akzeptanzkriterien
 
-- ✅ Kompletter Redirect-Flow gegen Mock AS grün (inkl. Hash-Verifikation)
-- ✅ Alle RFC-9635-Fehlercodes werden typisiert behandelt (keine Silent Failures)
-- ✅ Client läuft ohne ASP.NET-Core-Abhängigkeit (Console-App-fähig)
+- [x] Kompletter Redirect-Flow gegen Mock AS grün (inkl. Hash-Verifikation)
+- [x] Alle RFC-9635-Fehlercodes werden typisiert behandelt (keine Silent Failures):
+      `GnapProtocolException.Code` (`GnapErrorCode`), Nicht-GNAP-Fehler als
+      `GnapClientException` mit HTTP-Status
+- [x] Client läuft ohne ASP.NET-Core-Abhängigkeit (Console-App-fähig; per Test
+      geprüft; zusätzlich Native-AOT-Smoke-Test) — 93 Tests in `Gnap.Client.Tests`
+
+> **Hinweis zur Umsetzung:** Statt WireMock.Net simuliert ein In-Memory-AS
+> (`tests/Gnap.Client.Tests/Infrastructure/FakeAuthorizationServer.cs`) den
+> Authorization Server. Er kann — anders als statische WireMock-Stubs — jede
+> eingehende Signatur mit dem Phase-1-`HttpSigKeyProofValidator` prüfen
+> (inkl. Nonce-Replay-Schutz), Continuation-Tokens rotieren, `wait` erzwingen und
+> Finish-Hashes berechnen; Wartezeiten laufen über einen virtuellen `TimeProvider`
+> sofort ab. Keine Netzwerk-Ports, daher stabil auf Linux und Windows.
+> `.well-known/gnap-as-rs` ist in RFC 9767 (nicht RFC 9635 §9.1) definiert; der
+> Client unterstützt beide Discovery-Wege.
 
 ---
 
