@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Gnap.AspNetCore</PackageId>
+    <Description>An embeddable GNAP (RFC 9635) authorization server for ASP.NET Core: grant, continuation and interaction endpoints (redirect and user-code start, redirect/push finish), key-bound and bearer token issuance with token management, and RFC 9767 token introspection, with pluggable policy, storage and token formats.</Description>
+    <PackageTags>gnap;rfc9635;rfc9767;authorization-server;aspnetcore</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Gnap.Core\Gnap.Core.csproj" />
+    <ProjectReference Include="..\Gnap.HttpMessageSignatures\Gnap.HttpMessageSignatures.csproj" />
+    <ProjectReference Include="..\Gnap.HttpMessageSignatures.AspNetCore\Gnap.HttpMessageSignatures.AspNetCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Gnap.AspNetCore.Tests" />
+  </ItemGroup>
+
+</Project>
