@@ -1,0 +1,80 @@
+name: Interop
+
+# Cross-implementation interoperability tests (Phase 5, docs/interop.md):
+#   - Gnap.Client            -> Rafiki auth server (Interledger, docker compose)
+#   - gnap-client-php        -> Gnap.AspNetCore authorization server
+#   - HTTP Message Signatures cross-verification with two JavaScript implementations
+# Network-dependent and slower than the unit tests, so nightly and on demand only.
+on:
+  workflow_dispatch:
+    inputs:
+      rafiki_auth_image:
+        description: Rafiki auth image to test against
+        required: false
+        default: ghcr.io/interledger/rafiki-auth:latest
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  signatures:
+    name: HTTP signatures (Node implementations)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: dotnet build tests/Gnap.Interop.Tests --configuration Release
+      - run: interop/run-signatures.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interop-signatures
+          path: TestResults/interop
+          retention-days: 14
+
+  php-client:
+    name: gnap-client-php -> Gnap.AspNetCore AS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: PHP and Composer
+        run: php --version && composer --version
+      - run: dotnet build tests/Gnap.Interop.Tests --configuration Release
+      - run: interop/run-php-client.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interop-php-client
+          path: TestResults/interop
+          retention-days: 14
+
+  rafiki:
+    name: Gnap.Client -> Rafiki auth server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet build tests/Gnap.Interop.Tests --configuration Release
+      - run: interop/run-rafiki.sh
+        env:
+          RAFIKI_AUTH_IMAGE: ${{ inputs.rafiki_auth_image || 'ghcr.io/interledger/rafiki-auth:latest' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interop-rafiki
+          path: |
+            TestResults/interop
+            interop-rafiki-auth.log
+          retention-days: 14

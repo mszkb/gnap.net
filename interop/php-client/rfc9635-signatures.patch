@@ -1,0 +1,22 @@
+--- a/gnap-client.php
++++ b/gnap-client.php
+@@ -74,7 +74,8 @@
+     $signatureParams = StructuredFields\InnerList::fromMembers(array_keys($messageSignatureBase), [
+       'created' => $createdAt,
+       'keyid' => $this->privateKeyFile,
+-      'alg' => ($this->method == 'pss' ? 'rsa-pss-sha512' : 'rsa-v1_5-sha256'),
++      // RFC 9635 Section 7.3.1: tag="gnap" is required, alg must not be sent
++      'tag' => 'gnap',
+     ]);
+     
+     $messageSignatureString = '';
+@@ -89,7 +90,8 @@
+     #$messageSignatureString = 'Hello';
+ 
+     $hashBytes = hash($this->method == 'pss' ? 'sha512' : 'sha256', $messageSignatureString, true);
+-    $signature = $this->rsa->sign($hashBytes);
++    // phpseclib hashes the message itself; signing the pre-hashed bytes double-hashes
++    $signature = $this->rsa->sign($messageSignatureString);
+     $signatureByteSequence = StructuredFields\ByteSequence::fromDecoded($signature);
+ 
+     $signatureInput = StructuredFields\Dictionary::fromPairs([['sig', $signatureByteSequence]]);

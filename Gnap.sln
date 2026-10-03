@@ -39,6 +39,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gnap.AspNetCore.Tests", "te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnapAuthorizationServer", "examples\GnapAuthorizationServer\GnapAuthorizationServer.csproj", "{5A4E7859-5458-4A31-BEF4-11C1F6BEA0E6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gnap.Interop.Tests", "tests\Gnap.Interop.Tests\Gnap.Interop.Tests.csproj", "{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -229,6 +231,18 @@ Global
 		{5A4E7859-5458-4A31-BEF4-11C1F6BEA0E6}.Release|x64.Build.0 = Release|Any CPU
 		{5A4E7859-5458-4A31-BEF4-11C1F6BEA0E6}.Release|x86.ActiveCfg = Release|Any CPU
 		{5A4E7859-5458-4A31-BEF4-11C1F6BEA0E6}.Release|x86.Build.0 = Release|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Debug|x64.Build.0 = Debug|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Debug|x86.Build.0 = Debug|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Release|Any CPU.Build.0 = Release|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Release|x64.ActiveCfg = Release|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Release|x64.Build.0 = Release|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Release|x86.ActiveCfg = Release|Any CPU
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -249,5 +263,6 @@ Global
 		{88609C12-8E67-4F7C-9367-5529EF4E961F} = {0D7747E7-2D20-485B-B6B3-52D476D3158F}
 		{68AA2D0A-E9E2-4CC9-9A79-0BCAE254FAF5} = {4A7FD545-D59F-4C73-972F-140E94849050}
 		{5A4E7859-5458-4A31-BEF4-11C1F6BEA0E6} = {CF37510C-630F-4AFC-81CA-39A32190F298}
+		{583B4A55-FC56-4AB3-9BF0-9142D8F4F511} = {4A7FD545-D59F-4C73-972F-140E94849050}
 	EndGlobalSection
 EndGlobal

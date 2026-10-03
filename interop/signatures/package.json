@@ -1,0 +1,10 @@
+{
+  "name": "gnap-net-interop-signatures",
+  "private": true,
+  "type": "module",
+  "description": "Cross-implementation HTTP Message Signature checks for Gnap.Interop.Tests",
+  "dependencies": {
+    "@interledger/http-signature-utils": "2.0.3",
+    "http-message-signatures": "1.0.6"
+  }
+}
