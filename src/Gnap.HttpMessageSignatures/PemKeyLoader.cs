@@ -17,24 +17,27 @@ public static class PemKeyLoader
 
     /// <summary>Loads an RSA key pair or public key from PEM. The caller owns (disposes) the key.</summary>
     /// <exception cref="CryptographicException">No usable RSA key was found.</exception>
+    /// <remarks>
+    /// Private keys whose primes are not exactly half the modulus length (valid, but
+    /// rejected by Windows CNG, e.g. the RFC 9421 <c>test-key-rsa</c>) are loaded into
+    /// a BouncyCastle-backed <see cref="RSA"/> that supports signing and verification.
+    /// </remarks>
     public static RSA LoadRsa(string pem)
     {
+        foreach (var (label, der) in EnumeratePemBlocks(pem))
+        {
+            switch (label)
+            {
+                case "RSA PRIVATE KEY":
+                    return ImportRsaPrivateKey(der);
+                case "PRIVATE KEY":
+                    return ImportRsaPrivateKey(UnwrapPkcs8(der));
+            }
+        }
+
         var rsa = RSA.Create();
         try
         {
-            foreach (var (label, der) in EnumeratePemBlocks(pem))
-            {
-                switch (label)
-                {
-                    case "RSA PRIVATE KEY":
-                        rsa.ImportRSAPrivateKey(der, out _);
-                        return rsa;
-                    case "PRIVATE KEY":
-                        rsa.ImportRSAPrivateKey(UnwrapPkcs8(der), out _);
-                        return rsa;
-                }
-            }
-
             foreach (var (label, der) in EnumeratePemBlocks(pem))
             {
                 switch (label)
@@ -53,6 +56,30 @@ public static class PemKeyLoader
         catch
         {
             rsa.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Imports a PKCS#1 RSAPrivateKey into the platform provider, falling back to
+    /// <see cref="BouncyCastleRsa"/> for consistent keys the platform rejects.
+    /// </summary>
+    internal static RSA ImportRsaPrivateKey(byte[] pkcs1Der)
+    {
+        var rsa = RSA.Create();
+        try
+        {
+            rsa.ImportRSAPrivateKey(pkcs1Der, out _);
+            return rsa;
+        }
+        catch (CryptographicException)
+        {
+            rsa.Dispose();
+            if (BouncyCastleRsa.TryCreate(pkcs1Der) is { } fallback)
+            {
+                return fallback;
+            }
+
             throw;
         }
     }
