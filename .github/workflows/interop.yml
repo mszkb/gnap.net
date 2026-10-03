@@ -11,7 +11,7 @@ on:
       rafiki_auth_image:
         description: Rafiki auth image to test against
         required: false
-        default: ghcr.io/interledger/rafiki-auth:latest
+        default: ghcr.io/interledger/rafiki-auth:v2.4.1-beta
   schedule:
     - cron: '17 3 * * *'
 
@@ -69,7 +69,7 @@ jobs:
       - run: dotnet build tests/Gnap.Interop.Tests --configuration Release
       - run: interop/run-rafiki.sh
         env:
-          RAFIKI_AUTH_IMAGE: ${{ inputs.rafiki_auth_image || 'ghcr.io/interledger/rafiki-auth:latest' }}
+          RAFIKI_AUTH_IMAGE: ${{ inputs.rafiki_auth_image || 'ghcr.io/interledger/rafiki-auth:v2.4.1-beta' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

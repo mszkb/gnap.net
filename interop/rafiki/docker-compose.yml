@@ -20,7 +20,7 @@ services:
     image: redis:7-alpine
 
   auth:
-    image: ${RAFIKI_AUTH_IMAGE:-ghcr.io/interledger/rafiki-auth:latest}
+    image: ${RAFIKI_AUTH_IMAGE:-ghcr.io/interledger/rafiki-auth:v2.4.1-beta}
     depends_on:
       postgres:
         condition: service_healthy
