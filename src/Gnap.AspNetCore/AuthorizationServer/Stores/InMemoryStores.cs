@@ -258,3 +258,21 @@ public sealed class InMemoryResourceServerStore : IResourceServerStore
     public Task<ResourceServerRegistration?> FindAsync(string resourceServerId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_servers.GetValueOrDefault(resourceServerId));
 }
+
+/// <summary>An in-memory <see cref="IResourceSetStore"/>.</summary>
+public sealed class InMemoryResourceSetStore : IResourceSetStore
+{
+    private readonly ConcurrentDictionary<string, ResourceSetRegistration> _sets = new(StringComparer.Ordinal);
+
+    /// <inheritdoc />
+    public Task StoreAsync(ResourceSetRegistration registration, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+        _sets[registration.Reference] = registration;
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task<ResourceSetRegistration?> FindAsync(string reference, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_sets.GetValueOrDefault(reference));
+}

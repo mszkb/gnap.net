@@ -66,7 +66,9 @@ internal sealed class AsHarness : IAsyncDisposable
     public static async Task<AsHarness> StartAsync(
         Func<GrantPolicyContext, GrantDecision>? policy = null,
         Action<GnapAuthorizationServerOptions>? configure = null,
-        Action<GnapAuthorizationServerBuilder>? configureServer = null)
+        Action<GnapAuthorizationServerBuilder>? configureServer = null,
+        Action<WebApplicationBuilder>? configureBuilder = null,
+        Action<WebApplication>? configureApp = null)
     {
         var time = new VirtualTimeProvider();
         AsHarness? harness = null;
@@ -89,7 +91,10 @@ internal sealed class AsHarness : IAsyncDisposable
         builder.Services.AddHttpClient(GnapAuthorizationServerOptions.PushHttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => push);
 
+        configureBuilder?.Invoke(builder);
+
         var app = builder.Build();
+        configureApp?.Invoke(app);
         app.MapGnapAuthorizationServer();
         app.MapGet("/consent", async context =>
         {

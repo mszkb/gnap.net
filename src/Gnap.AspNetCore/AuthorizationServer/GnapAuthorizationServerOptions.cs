@@ -63,6 +63,13 @@ public sealed class GnapAuthorizationServerOptions
     public bool EnableIntrospection { get; set; } = true;
 
     /// <summary>
+    /// Whether the RFC 9767 resource registration endpoint (<c>{BasePath}/resource</c>)
+    /// is mapped, letting registered resource servers obtain access references for
+    /// resource sets. Defaults to <see langword="true"/>.
+    /// </summary>
+    public bool EnableResourceRegistration { get; set; } = true;
+
+    /// <summary>
     /// Whether every request signature must carry a <c>nonce</c> (replay protection,
     /// RFC 9421 Section 7.2.2). Defaults to <see langword="true"/>; nonces are always
     /// checked against the replay store when present.

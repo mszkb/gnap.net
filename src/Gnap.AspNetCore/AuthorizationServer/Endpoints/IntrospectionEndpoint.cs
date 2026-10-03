@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Gnap.AspNetCore.AuthorizationServer.Stores;
+using Gnap.AspNetCore.AuthorizationServer.Tokens;
 using Gnap.Core.Json;
 using Gnap.Core.Models;
 using Microsoft.AspNetCore.Http;
@@ -163,7 +164,7 @@ internal sealed class IntrospectionEndpoint(
 /// AS discovery (RFC 9635 Section 9 via <c>OPTIONS</c> on the grant endpoint, and
 /// RFC 9767 Section 3.1 at <c>/.well-known/gnap-as-rs</c>).
 /// </summary>
-internal sealed class DiscoveryEndpoint(GnapEndpointUris uris, IOptions<GnapAuthorizationServerOptions> options)
+internal sealed class DiscoveryEndpoint(GnapEndpointUris uris, ITokenFormat tokenFormat, IOptions<GnapAuthorizationServerOptions> options)
 {
     private readonly GnapAuthorizationServerOptions _options = options.Value;
 
@@ -186,6 +187,16 @@ internal sealed class DiscoveryEndpoint(GnapEndpointUris uris, IOptions<GnapAuth
             if (_options.EnableIntrospection)
             {
                 writer.WriteString("introspection_endpoint", uris.Introspection(context));
+            }
+
+            if (_options.EnableResourceRegistration)
+            {
+                writer.WriteString("resource_registration_endpoint", uris.ResourceRegistration(context));
+            }
+
+            if (tokenFormat.FormatName is { } formatName)
+            {
+                WriteArray(writer, "token_formats_supported", [formatName]);
             }
 
             writer.WriteEndObject();

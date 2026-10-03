@@ -42,6 +42,7 @@ public static class GnapAuthorizationServerExtensions
         services.TryAddSingleton<ITokenStore, InMemoryTokenStore>();
         services.TryAddSingleton<IClientKeyStore, InMemoryClientKeyStore>();
         services.TryAddSingleton<IResourceServerStore, InMemoryResourceServerStore>();
+        services.TryAddSingleton<IResourceSetStore, InMemoryResourceSetStore>();
         services.TryAddSingleton<IGrantPolicy, DenyAllGrantPolicy>();
         services.TryAddSingleton<ITokenFormat, OpaqueTokenFormat>();
         services.TryAddSingleton<IGnapInteractionPage, DefaultInteractionPage>();
@@ -55,6 +56,7 @@ public static class GnapAuthorizationServerExtensions
         services.TryAddScoped<ContinuationEndpoint>();
         services.TryAddScoped<TokenManagementEndpoint>();
         services.TryAddScoped<IntrospectionEndpoint>();
+        services.TryAddScoped<ResourceRegistrationEndpoint>();
         services.TryAddScoped<DiscoveryEndpoint>();
         services.TryAddScoped<InteractionEndpoint>();
         return new GnapAuthorizationServerBuilder(services);
@@ -63,7 +65,7 @@ public static class GnapAuthorizationServerExtensions
     /// <summary>
     /// Maps the AS endpoints below <see cref="GnapAuthorizationServerOptions.BasePath"/>
     /// (grant <c>/tx</c>, <c>/continue/{grantId}</c>, <c>/interact/{interactionId}</c>,
-    /// <c>/device</c>, <c>/token/{manageId}</c>, <c>/introspect</c>) plus
+    /// <c>/device</c>, <c>/token/{manageId}</c>, <c>/introspect</c>, <c>/resource</c>) plus
     /// <c>/.well-known/gnap-as-rs</c> at the application root.
     /// </summary>
     public static IEndpointConventionBuilder MapGnapAuthorizationServer(this IEndpointRouteBuilder endpoints)
@@ -89,6 +91,11 @@ public static class GnapAuthorizationServerExtensions
         if (options.EnableIntrospection)
         {
             group.MapPost(GnapPaths.Introspect, Handle<IntrospectionEndpoint>((e, c) => e.HandleAsync(c)));
+        }
+
+        if (options.EnableResourceRegistration)
+        {
+            group.MapPost(GnapPaths.ResourceRegistration, Handle<ResourceRegistrationEndpoint>((e, c) => e.HandleAsync(c)));
         }
 
         endpoints.MapGet(GnapPaths.WellKnown, Handle<DiscoveryEndpoint>((e, c) => e.HandleAsync(c)));
@@ -146,6 +153,13 @@ public sealed class GnapAuthorizationServerBuilder
     /// <summary>Uses <typeparamref name="TStore"/> (scoped) as the resource server store.</summary>
     public GnapAuthorizationServerBuilder AddResourceServerStore<TStore>()
         where TStore : class, IResourceServerStore => Replace<IResourceServerStore, TStore>();
+
+    /// <summary>Uses the given resource set store instance (RFC 9767 resource registration).</summary>
+    public GnapAuthorizationServerBuilder AddResourceSetStore(IResourceSetStore store) => Replace(store);
+
+    /// <summary>Uses <typeparamref name="TStore"/> (scoped) as the resource set store.</summary>
+    public GnapAuthorizationServerBuilder AddResourceSetStore<TStore>()
+        where TStore : class, IResourceSetStore => Replace<IResourceSetStore, TStore>();
 
     /// <summary>Uses the given token format, e.g. a <see cref="JwtTokenFormat"/>.</summary>
     public GnapAuthorizationServerBuilder AddTokenFormat(ITokenFormat format) => Replace(format);

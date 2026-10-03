@@ -102,3 +102,37 @@ public interface IResourceServerStore
     /// <summary>Finds a resource server by its identifier.</summary>
     Task<ResourceServerRegistration?> FindAsync(string resourceServerId, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// A set of resources a resource server registered at the AS (RFC 9767 Section 3.4).
+/// Clients request it by its <see cref="Reference"/>, which the RS hands out, e.g.
+/// as the <c>access</c> parameter of its <c>WWW-Authenticate: GNAP</c> challenge.
+/// </summary>
+public sealed class ResourceSetRegistration
+{
+    /// <summary>The access reference the AS assigned (<c>resource_reference</c>).</summary>
+    public required string Reference { get; init; }
+
+    /// <summary>The registering resource server.</summary>
+    public required string ResourceServerId { get; init; }
+
+    /// <summary>The rights of access the reference stands for.</summary>
+    public required IList<AccessRight> Access { get; init; }
+
+    /// <summary>When the set was registered.</summary>
+    public DateTimeOffset RegisteredAt { get; init; }
+}
+
+/// <summary>
+/// Persists resource sets registered by resource servers (RFC 9767 Section 3.4).
+/// A grant policy can resolve a requested access reference through
+/// <see cref="FindAsync"/> to the rights it stands for.
+/// </summary>
+public interface IResourceSetStore
+{
+    /// <summary>Stores a newly registered resource set.</summary>
+    Task StoreAsync(ResourceSetRegistration registration, CancellationToken cancellationToken = default);
+
+    /// <summary>Finds a resource set by its access reference.</summary>
+    Task<ResourceSetRegistration?> FindAsync(string reference, CancellationToken cancellationToken = default);
+}

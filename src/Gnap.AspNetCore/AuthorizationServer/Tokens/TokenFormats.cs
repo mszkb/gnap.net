@@ -51,6 +51,13 @@ public interface ITokenFormat
 {
     /// <summary>Creates the token value. It must use the <c>token68</c> character set.</summary>
     ValueTask<string> CreateTokenAsync(AccessTokenDescriptor descriptor, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The registered token format name (RFC 9767 Section 6.2, e.g. <c>jwt-signed</c>)
+    /// advertised as <c>token_formats_supported</c> in the RS-facing discovery document;
+    /// <see langword="null"/> (the default) for formats opaque to the RS.
+    /// </summary>
+    string? FormatName => null;
 }
 
 /// <summary>The default format: 256 random bits, base64url-encoded — a pure reference into the token store.</summary>
@@ -65,7 +72,11 @@ public sealed class OpaqueTokenFormat : ITokenFormat
 /// Issues access tokens as signed JWTs (compact JWS, <c>typ: gnap-at+jwt</c>) with
 /// the claims <c>iss</c>, <c>jti</c>, <c>iat</c>, <c>exp</c>, <c>access</c>,
 /// <c>instance_id</c>, <c>sub</c> and, for key-bound tokens, <c>cnf.jkt</c>
-/// (the RFC 7638 thumbprint of the bound key). Signed with the AS key given to the
+/// (the RFC 7638 thumbprint of the bound key) plus <c>key</c> (the bound public key
+/// with its proof method, in the form of an RFC 9767 introspection response), so a
+/// resource server can verify the token and the request signature locally
+/// (<see cref="Gnap.AspNetCore.ResourceServer.JwtTokenValidator"/>). Bearer tokens carry
+/// <c>flags: ["bearer"]</c> instead. Signed with the AS key given to the
 /// constructor (ES256, ES384, EdDSA, PS512 or RS256 depending on the JWK).
 /// </summary>
 public sealed class JwtTokenFormat : ITokenFormat
@@ -95,6 +106,9 @@ public sealed class JwtTokenFormat : ITokenFormat
 
     /// <summary>The public verification key, e.g. for publishing to resource servers.</summary>
     public JsonWebKey PublicKey { get; }
+
+    /// <inheritdoc />
+    public string FormatName => "jwt-signed";
 
     /// <inheritdoc />
     public ValueTask<string> CreateTokenAsync(AccessTokenDescriptor descriptor, CancellationToken cancellationToken = default)
@@ -132,11 +146,23 @@ public sealed class JwtTokenFormat : ITokenFormat
 
             writer.WritePropertyName("access");
             JsonSerializer.Serialize(writer, descriptor.Access, GnapJsonContext.Default.IListAccessRight);
-            if (descriptor.BoundKey?.Jwk is { } jwk)
+            if (descriptor.BoundKey is { } boundKey)
             {
-                writer.WriteStartObject("cnf");
-                writer.WriteString("jkt", jwk.ComputeThumbprint());
-                writer.WriteEndObject();
+                if (boundKey.Jwk is { } jwk)
+                {
+                    writer.WriteStartObject("cnf");
+                    writer.WriteString("jkt", jwk.ComputeThumbprint());
+                    writer.WriteEndObject();
+                }
+
+                writer.WritePropertyName("key");
+                JsonSerializer.Serialize(writer, boundKey, GnapJsonContext.Default.GnapKey);
+            }
+            else
+            {
+                writer.WriteStartArray("flags");
+                writer.WriteStringValue(AccessTokenFlags.Bearer);
+                writer.WriteEndArray();
             }
         });
 
@@ -158,7 +184,7 @@ public sealed class JwtTokenFormat : ITokenFormat
         return Base64Url.EncodeToString(buffer.ToArray());
     }
 
-    private static string ToJwsAlgorithm(string httpSignatureAlgorithm) => httpSignatureAlgorithm switch
+    internal static string ToJwsAlgorithm(string httpSignatureAlgorithm) => httpSignatureAlgorithm switch
     {
         "ecdsa-p256-sha256" => "ES256",
         "ecdsa-p384-sha384" => "ES384",

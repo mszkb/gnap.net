@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <PackageId>Gnap.AspNetCore</PackageId>
-    <Description>An embeddable GNAP (RFC 9635) authorization server for ASP.NET Core: grant, continuation and interaction endpoints (redirect and user-code start, redirect/push finish), key-bound and bearer token issuance with token management, and RFC 9767 token introspection, with pluggable policy, storage and token formats.</Description>
-    <PackageTags>gnap;rfc9635;rfc9767;authorization-server;aspnetcore</PackageTags>
+    <Description>GNAP (RFC 9635) for ASP.NET Core: an embeddable authorization server (grant, continuation and interaction endpoints, key-bound and bearer token issuance with token management, RFC 9767 introspection and resource registration, pluggable policy, storage and token formats) and resource server middleware (Authorization: GNAP token verification with httpsig key proofs, introspection with caching or local verification, access-right authorization policies).</Description>
+    <PackageTags>gnap;rfc9635;rfc9767;authorization-server;resource-server;aspnetcore</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 

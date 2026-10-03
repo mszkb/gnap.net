@@ -132,6 +132,8 @@ internal sealed class GnapEndpointUris(IOptions<GnapAuthorizationServerOptions> 
     public string Token(HttpContext context, string manageId) => Endpoint(context, $"{GnapPaths.TokenPrefix}/{manageId}");
 
     public string Introspection(HttpContext context) => Endpoint(context, GnapPaths.Introspect);
+
+    public string ResourceRegistration(HttpContext context) => Endpoint(context, GnapPaths.ResourceRegistration);
 }
 
 /// <summary>The endpoint paths below <see cref="GnapAuthorizationServerOptions.BasePath"/>.</summary>
@@ -154,6 +156,9 @@ public static class GnapPaths
 
     /// <summary>The token introspection endpoint (RFC 9767 Section 3.3).</summary>
     public const string Introspect = "/introspect";
+
+    /// <summary>The resource registration endpoint (RFC 9767 Section 3.4).</summary>
+    public const string ResourceRegistration = "/resource";
 
     /// <summary>The well-known AS discovery document (RFC 9767 Section 3.1), mapped at the application root.</summary>
     public const string WellKnown = "/.well-known/gnap-as-rs";
