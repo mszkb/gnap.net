@@ -19,6 +19,10 @@ New here? Two plain-language guides build the concepts up from zero:
 - **[Interoperability](docs/interop.md)** — tested against Rafiki (Interledger),
   gnap-client-php and two JavaScript HTTP signature implementations; interop matrix,
   findings and the RFC 9635 conformance checklist (Phase 5)
+- **[Architecture](docs/architecture.md)** — package graph, components and Mermaid
+  sequence diagrams for every flow
+- **[Threat model](docs/threat-model.md)** — STRIDE analysis and the security
+  checklist for operators
 
 ## Status
 
@@ -55,6 +59,20 @@ implementations (see [docs/interop.md](docs/interop.md)):
 | `examples/GnapCore.Demo` | Guided GNAP walkthrough: JWKs and thumbprints, grant-request JSON, key proofing (incl. replay/tamper rejection), finish-hash vectors, and a live signed grant negotiation against an in-process mini AS |
 
 Requires the **.NET 10 SDK**.
+
+## Installation
+
+The packages are prepared for nuget.org (see [docs/releasing.md](docs/releasing.md));
+once released:
+
+```bash
+dotnet add package Gnap.Client        # GNAP client (no ASP.NET Core dependency)
+dotnet add package Gnap.AspNetCore    # authorization server + resource server
+dotnet add package Gnap.HttpMessageSignatures   # RFC 9421 on its own
+```
+
+`Gnap.Core` and `Gnap.HttpMessageSignatures.AspNetCore` come in as dependencies. Every
+package has its own README (`src/*/README.md`), Source Link and symbol packages.
 
 ## Quickstart
 
@@ -220,10 +238,20 @@ the documented equivalent mutants.
 ## CI
 
 GitHub Actions builds and tests on Linux and Windows for every push and pull
-request (`.github/workflows/ci.yml`). Mutation testing runs nightly and on
-demand (`.github/workflows/mutation.yml`, `--break-at 90`). Interoperability tests
+request (`.github/workflows/ci.yml`), enforces a coverage gate (line ≥ 85 %,
+branch ≥ 75 %) and packs the NuGet packages. CodeQL analyzes every push to `main`
+and every pull request (`.github/workflows/codeql.yml`). Mutation testing runs
+nightly, on demand and on pull requests touching the signature code
+(`.github/workflows/mutation.yml`, `--break-at 90`). Pushing a `v*` tag releases the
+packages to nuget.org (`.github/workflows/release.yml`, see
+[docs/releasing.md](docs/releasing.md)). Interoperability tests
 against Rafiki, gnap-client-php and the JavaScript signature libraries run nightly
 and on demand (`.github/workflows/interop.yml`, see [docs/interop.md](docs/interop.md)).
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md). Please report
+vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
