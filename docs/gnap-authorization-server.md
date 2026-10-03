@@ -2,7 +2,9 @@
 
 `Gnap.AspNetCore` turns any ASP.NET Core application into a GNAP authorization
 server (AS, [RFC 9635](https://datatracker.ietf.org/doc/rfc9635/)), including the
-RS-facing token introspection of [RFC 9767](https://datatracker.ietf.org/doc/rfc9767/).
+RS-facing token introspection and resource registration of
+[RFC 9767](https://datatracker.ietf.org/doc/rfc9767/). The matching resource server
+middleware is described in [Protecting an API with GNAP](gnap-resource-server.md).
 The protocol is handled by the library; you decide **who gets what** (the policy),
 **where state lives** (the stores) and **what the resource owner sees** (the consent
 UI). New to the vocabulary? Read [GNAP for Dummies](gnap-for-dummies.md) first.
@@ -16,7 +18,7 @@ UI). New to the vocabulary? Read [GNAP for Dummies](gnap-for-dummies.md) first.
 5. [Grant lifecycle](#5-grant-lifecycle)
 6. [Tokens](#6-tokens)
 7. [Storage](#7-storage)
-8. [Introspection for resource servers](#8-introspection-for-resource-servers)
+8. [Introspection and resource registration](#8-introspection-and-resource-registration)
 9. [Security properties](#9-security-properties)
 10. [Options](#10-options)
 11. [What is not covered (yet)](#11-what-is-not-covered-yet)
@@ -65,6 +67,7 @@ curl -X OPTIONS http://localhost:5100/gnap/tx    # discovery
 | `POST /token/{manageId}` | 9635 §6.1 | Token rotation, key rotation (§6.1.2) |
 | `DELETE /token/{manageId}` | 9635 §6.2 | Token revocation |
 | `POST /introspect` | 9767 §3.3 | Token introspection for resource servers |
+| `POST /resource` | 9767 §3.4 | Resource set registration by resource servers |
 
 All absolute URIs handed out (continuation, interaction, management) are built
 from the request's origin, or from `PublicOrigin` when set — set it (or configure
@@ -180,7 +183,9 @@ all their tokens.
 * **Formats.** `ITokenFormat` creates the value; the default `OpaqueTokenFormat` is
   256 random bits. `JwtTokenFormat(signingJwk)` issues signed JWTs
   (`typ: gnap-at+jwt`, claims `iss`, `jti`, `iat`, `exp`, `access`, `sub`,
-  `instance_id`, `cnf.jkt` for key-bound tokens). Every token is also recorded in the
+  `instance_id`; for key-bound tokens `cnf.jkt` and `key` — the bound public key with
+  its proof method, so an RS can verify the request signature without asking the AS —
+  and `flags: ["bearer"]` for bearer tokens). Every token is also recorded in the
   token store, so revocation and introspection work for all formats.
 * **Management.** Each token carries a `manage` URI and management token (unless
   `EnableTokenManagement = false`): `POST` rotates it (single-use: the old value is
@@ -198,11 +203,12 @@ all their tokens.
 | `IGrantStore` | Grants (`GrantRecord`) | `InMemoryGrantStore` |
 | `ITokenStore` | Issued tokens (`TokenRecord`) | `InMemoryTokenStore` |
 | `IClientKeyStore` | Client instances (`instance_id`) and key references | `InMemoryClientKeyStore` |
-| `IResourceServerStore` | Resource servers allowed to introspect | `InMemoryResourceServerStore` |
+| `IResourceServerStore` | Resource servers allowed to introspect and register resources | `InMemoryResourceServerStore` |
+| `IResourceSetStore` | Resource sets registered by resource servers (RFC 9767 §3.4) | `InMemoryResourceSetStore` |
 
 All defaults are registered with `TryAdd` (register your own first, or replace them
 with `AddGrantStore<T>()`, `AddTokenStore<T>()`, `AddClientKeyStore<T>()`,
-`AddResourceServerStore<T>()` — scoped — or the instance overloads). Secrets are
+`AddResourceServerStore<T>()`, `AddResourceSetStore<T>()` — scoped — or the instance overloads). Secrets are
 stored only as SHA-256 hashes: token values, management tokens, continuation
 tokens, interaction references and session bindings.
 
@@ -217,7 +223,7 @@ For several AS instances, also register a shared `INonceStore`
 (`Gnap.HttpMessageSignatures`) — the AS uses it for signature replay protection
 and falls back to an in-memory store.
 
-## 8. Introspection for resource servers
+## 8. Introspection and resource registration
 
 A resource server registers with an identifier and key:
 
@@ -238,8 +244,24 @@ An active token is described with `active`, `access`, `key` (key-bound) or
 `flags: ["bearer"]`, `iat`, `exp`, `iss`, `instance_id` and `sub`. Unknown,
 expired and revoked tokens, a `proof` that does not match the token's binding, or
 `access` the token does not carry all give exactly `{"active":false}`.
-Unauthenticated callers get `invalid_client`. Phase 4 builds the RS middleware on
-top of this.
+Unauthenticated callers get `invalid_client`.
+
+With the same signed request style, a registered RS can register a **resource set**
+(RFC 9767 §3.4) at `POST /gnap/resource`:
+
+```json
+{ "access": [ { "type": "photo-api", "actions": ["read"] } ], "resource_server": "photo-rs" }
+```
+
+and receives `{"resource_reference": "…"}` — an access reference it can hand to
+clients (e.g. in its `WWW-Authenticate: GNAP` challenge). The set is kept in the
+`IResourceSetStore`; a grant policy can resolve a requested reference with
+`FindAsync` and approve the rights it stands for (the AS does not expand references
+on its own). Disable the endpoint with `EnableResourceRegistration = false`. The
+discovery document advertises `resource_registration_endpoint` and, for
+`JwtTokenFormat`, `token_formats_supported: ["jwt-signed"]`.
+
+The [`Gnap.AspNetCore` RS middleware](gnap-resource-server.md) uses all of this.
 
 ## 9. Security properties
 
@@ -274,6 +296,7 @@ top of this.
 | `EnableTokenManagement` / `AllowKeyRotation` | `true` / `true` | Token management API and key rotation |
 | `IssueInstanceIds` | `true` | Assign `instance_id`s to by-value clients |
 | `EnableIntrospection` | `true` | Map the introspection endpoint |
+| `EnableResourceRegistration` | `true` | Map the resource registration endpoint |
 | `RequireSignatureNonce` | `true` | Signatures must carry a `nonce` |
 | `SignatureMaxAge` / `SignatureClockSkew` | 5 min / 5 min | Signature freshness window |
 | `MaxRequestBodySize` | 64 KiB | Largest accepted request body |
@@ -285,6 +308,6 @@ top of this.
 
 * Grant modification (`PATCH`, RFC 9635 §5.3) — answered with `invalid_request`.
 * The `app` start mode and proofing methods other than `httpsig` (`mtls`, `jwsd`, `jws`).
-* RS-first resource registration (RFC 9767 §3.4) and token audiences.
+* Token audiences, and resource servers presenting their key by value (RS must be pre-registered).
 * Attempt limiting for user code entry (codes have ~34 bits of entropy and expire).
 * Assertions in subject information are passed through from the approval, not generated.

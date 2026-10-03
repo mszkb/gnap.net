@@ -349,34 +349,58 @@ GNAP-Token-Verifikation in einer Zeile Middleware.
 
 ### Aufgaben
 
-- [ ] **Token-Verifikations-Middleware:** `Authorization: GNAP <token>` Parsing,
+- [x] **Token-Verifikations-Middleware:** `Authorization: GNAP <token>` Parsing,
       Key-Bound-Token → Signatur-Verifikation des Requests (Phase 0) gegen den an
-      das Token gebundenen Key, Bearer-Token-Support (opt-in)
-- [ ] **RS-Discovery (RFC 9767):** `.well-known`-Metadaten des RS,
-      `resource_server`-Registrierung beim AS
-- [ ] **Token Introspection (RFC 9767 §3.3):** Introspection-Client mit
-      signierten Requests, Response-Caching (TTL ≤ Token-Restlaufzeit, negative
-      Caches kurz), lokale Verifikation als Alternative (`ITokenFormat` aus Phase 3)
-- [ ] **Autorisierung:** Mapping von `access`-Rechten auf ASP.NET Core
-      Authorization Policies (`RequireGnapAccess("read-balances")`),
-      `HttpContext`-Feature mit Token-Metadaten
-- [ ] **Fehlerverhalten:** `WWW-Authenticate: GNAP`-Header, RFC-konforme
+      das Token gebundenen Key, Bearer-Token-Support (opt-in) — als
+      ASP.NET-Core-Authentication-Handler (`AddGnapResourceServer()` +
+      `UseGnapResourceServer()`), inkl. Content-Digest-Prüfung und Nonce-Replay-Schutz
+- [x] **RS-Discovery (RFC 9767):** `.well-known`-Metadaten des AS
+      (`/.well-known/gnap-as-rs`, nun mit `resource_registration_endpoint` und
+      `token_formats_supported`) werden vom RS konsumiert; RS-Discovery für Clients über
+      `WWW-Authenticate: GNAP as_uri, access` (RFC 9635 §9.1);
+      Resource-Set-Registrierung beim AS (RFC 9767 §3.4, `POST /gnap/resource`,
+      `IResourceSetStore`)
+- [x] **Token Introspection (RFC 9767 §3.3):** Introspection-Client
+      (`GnapAsRsClient`) mit signierten Requests, Response-Caching
+      (`GnapIntrospectionCache`: TTL ≤ Token-Restlaufzeit, negative Caches kurz,
+      `Invalidate`), lokale Verifikation als Alternative (`JwtTokenValidator` für
+      `JwtTokenFormat`, `TokenStoreValidator` für den co-gehosteten AS)
+- [x] **Autorisierung:** Mapping von `access`-Rechten auf ASP.NET Core
+      Authorization Policies (`RequireGnapAccess("read-balances")`,
+      `RequireGnapAccess("photo-api", "read")`, `GnapAccessRequirement`),
+      `HttpContext`-Feature mit Token-Metadaten (`IGnapTokenFeature`, `GetGnapToken()`)
+- [x] **Fehlerverhalten:** `WWW-Authenticate: GNAP`-Header, RFC-konforme
       401/403-Semantik
 
 ### Tests
 
-- [ ] Signierte Requests: gültig / falscher Key / manipulierter Body / fehlende
-      Signatur bei key-bound Token
-- [ ] Abgelaufene und revozierte Tokens (Introspection-Pfad und lokaler Pfad)
-- [ ] Introspection-Caching: Hit/Miss/Expiry, Cache-Invalidierung nach Revocation
-- [ ] **Integration: Client → AS → RS → Protected Resource** — der vollständige
+- [x] Signierte Requests: gültig / falscher Key / manipulierter Body / fehlende
+      Signatur bei key-bound Token (zusätzlich: gestohlenes Token, getauschtes Token,
+      veraltete Signatur, fehlende Nonce, Replay — je Validierungsmodus)
+- [x] Abgelaufene und revozierte Tokens (Introspection-Pfad und lokaler Pfad)
+- [x] Introspection-Caching: Hit/Miss/Expiry, Cache-Invalidierung nach Revocation
+- [x] **Integration: Client → AS → RS → Protected Resource** — der vollständige
       Vier-Parteien-Flow in einem Test (alle eigenen Komponenten)
 
 ### Akzeptanzkriterien
 
-- ✅ End-to-End-Flow über alle vier Rollen grün
+- ✅ End-to-End-Flow über alle vier Rollen grün (RS-first Discovery → Grant mit
+  RO-Consent → signierter RS-Aufruf; für Introspection, Token-Store und JWT)
 - ✅ Key-bound Token ohne gültige Request-Signatur wird **immer** abgelehnt
 - ✅ RS funktioniert gegen den eigenen AS sowohl via Introspection als auch lokal
+- 169 Tests in `Gnap.AspNetCore.Tests` (80 neu); Doku: `docs/gnap-resource-server.md`
+
+> **Hinweise zur Umsetzung:** Die RS-Middleware ist ein ASP.NET-Core-Authentication-
+> Handler (Schema `GNAP`), damit sie sich in `[Authorize]`/`RequireAuthorization`
+> einfügt; `UseGnapResourceServer()` ist die „eine Zeile". RFC 9767 definiert kein
+> eigenes `.well-known`-Dokument *des RS*: Der RS konsumiert die RS-facing
+> AS-Metadaten, Clients entdecken den AS über die `WWW-Authenticate`-Challenge.
+> Für lokale JWT-Verifikation enthält `JwtTokenFormat` jetzt zusätzlich den
+> gebundenen Key samt Proof-Methode (`key`, neben `cnf.jkt`) bzw. `flags: ["bearer"]`;
+> Revocation ist dort erst mit Ablauf sichtbar (dokumentiert). Der AS expandiert
+> registrierte Access-Referenzen nicht selbst — die Grant-Policy kann sie über
+> `IResourceSetStore` auflösen. Bei Introspection fragt der RS ohne `proof`/`access`
+> und prüft Bindung und Rechte selbst.
 
 ---
 

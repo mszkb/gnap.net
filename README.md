@@ -14,12 +14,15 @@ New here? Two plain-language guides build the concepts up from zero:
   with the client library (Phase 2)
 - **[Running a GNAP authorization server](docs/gnap-authorization-server.md)** —
   embedding the AS in ASP.NET Core with `Gnap.AspNetCore` (Phase 3)
+- **[Protecting an API with GNAP](docs/gnap-resource-server.md)** — the resource
+  server middleware of `Gnap.AspNetCore` (Phase 4)
 
 ## Status
 
 **Phase 0 — HTTP Message Signatures (RFC 9421)**,
-**Phase 1 — GNAP Core Primitives**, **Phase 2 — Client Library** and
-**Phase 3 — Authorization Server** are implemented:
+**Phase 1 — GNAP Core Primitives**, **Phase 2 — Client Library**,
+**Phase 3 — Authorization Server** and **Phase 4 — Resource Server Middleware** are
+implemented:
 
 | Project | Contents |
 |---------|----------|
@@ -27,11 +30,11 @@ New here? Two plain-language guides build the concepts up from zero:
 | `src/Gnap.HttpMessageSignatures.AspNetCore` | ASP.NET Core middleware verifying signatures and content digests on incoming requests, with optional nonce-based replay protection |
 | `src/Gnap.Core` | RFC 9635 building blocks: `JsonWebKey` (EC/OKP/RSA, RFC 7638 thumbprints, conversion to signing keys), `httpsig` key proofing (string and object form with pinned `alg`/`content-digest-alg`) with nonce replay protection, the interaction finish hash and finish callback (redirect/push), `Authorization: GNAP` token presentation, and source-generated JSON models for grant requests/responses (Native-AOT-verified) |
 | `src/Gnap.Client` | GNAP client without ASP.NET Core dependency: AS discovery (`OPTIONS` on the grant endpoint, `/.well-known/gnap-as-rs`, RS `WWW-Authenticate` challenge) with metadata caching, httpsig-signed grant requests (key by value/reference, instance id), redirect/push/user-code interaction with finish-hash verification, continuation and polling (`wait`, `too_fast` back-off, rotating continuation tokens), 5xx retries with fresh signatures, token rotation/revocation/key rotation, self-refreshing tokens and an `HttpClient` handler for RS calls, typed GNAP errors, `services.AddGnapClient(...)` |
-| `src/Gnap.AspNetCore` | Embeddable GNAP authorization server: grant endpoint with httpsig key proof verification and nonce replay protection, grant state machine, redirect and user-code interaction with browser session binding and redirect/push finish, continuation (rotating key-bound continuation tokens, `wait`, single-use `interact_ref`), key-bound and bearer tokens with pluggable `ITokenFormat` (opaque, JWT), multi-token responses, token rotation/key rotation/revocation, RFC 9767 introspection with RS authentication, discovery; deny-by-default `IGrantPolicy`, `IGrantStore`/`ITokenStore`/`IClientKeyStore`/`IResourceServerStore` with in-memory defaults, all replaceable via DI |
+| `src/Gnap.AspNetCore` | **Resource server:** `AddGnapResourceServer()` + `UseGnapResourceServer()` — `Authorization: GNAP` authentication handler that verifies the `httpsig` key proof of key-bound tokens against the bound key (content digest, nonce replay protection; bearer opt-in), token validation by cached RFC 9767 introspection, the co-hosted AS token store or local JWT verification, `RequireGnapAccess("type", "action")` policies, `IGnapTokenFeature`, RFC-conformant 401/403 with `WWW-Authenticate: GNAP as_uri, access` challenge, RFC 9767 discovery and resource set registration. **Authorization server:** embeddable GNAP AS: grant endpoint with httpsig key proof verification and nonce replay protection, grant state machine, redirect and user-code interaction with browser session binding and redirect/push finish, continuation (rotating key-bound continuation tokens, `wait`, single-use `interact_ref`), key-bound and bearer tokens with pluggable `ITokenFormat` (opaque, JWT), multi-token responses, token rotation/key rotation/revocation, RFC 9767 introspection and resource registration with RS authentication, discovery; deny-by-default `IGrantPolicy`, `IGrantStore`/`ITokenStore`/`IClientKeyStore`/`IResourceServerStore` with in-memory defaults, all replaceable via DI |
 | `tests/Gnap.HttpMessageSignatures.Tests` | 224 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) and FsCheck property tests (deterministic signature base, header order/casing invariance, sign→verify for all algorithms, tamper sensitivity, RFC 8941 and `@query-param` codec roundtrips) |
 | `tests/Gnap.Core.Tests` | 108 tests: RFC 7638/8037 thumbprint vectors, RFC 9635 §4.2.3 finish-hash vectors, key-proof negative tests (wrong key, tampered body/method/URI/token, replay, wrong tag/alg/keyid/digest, stale), JSON round-trips with unknown-member tolerance |
 | `tests/Gnap.Client.Tests` | 93 tests against an in-memory mock AS that verifies the signature of **every** client request with the Phase 0/1 verifier (nonce replay protection on): full redirect/push/user-code flows, all 13 registered error codes, `user_denied`/`too_fast`/`unknown_interaction`, 5xx retry, finish hash valid/tampered/missing/replayed, token expiry → rotation, key rotation, discovery caching, DI |
-| `tests/Gnap.AspNetCore.Tests` | 89 tests: the unmodified Phase 2 client against the real AS on a `TestServer` (redirect/push/user-code flows with simulated consent, polling, multi-token, bearer, rotation, key rotation, revocation, instance ids, key references, discovery, JWT tokens), security negative tests (replay, stale signatures, foreign/rotated/expired/unknown continuation with byte-identical errors, tampered and reused `interact_ref`, key mismatch, session binding, single-use user codes, concurrent continuations), policy, state machine, introspection and DI tests, plus the example AS via `WebApplicationFactory` (Razor consent form, EF Core) |
+| `tests/Gnap.AspNetCore.Tests` | 169 tests: **four-role end-to-end flows** (client → AS with RO consent → RS → protected resource, RS-first discovery via the challenge) for introspection, co-hosted token store and JWT validation; key-proof negative tests for every validation mode (unsigned, wrong key, stolen token, tampered body/digest, swapped token, stale, no nonce, replay), expired/revoked tokens, introspection cache hit/miss/expiry/invalidation, bearer opt-in, 401/403 challenges, resource registration, JWT forgery tests; plus the unmodified Phase 2 client against the real AS on a `TestServer` (redirect/push/user-code flows with simulated consent, polling, multi-token, bearer, rotation, key rotation, revocation, instance ids, key references, discovery, JWT tokens), security negative tests (replay, stale signatures, foreign/rotated/expired/unknown continuation with byte-identical errors, tampered and reused `interact_ref`, key mismatch, session binding, single-use user codes, concurrent continuations), policy, state machine, introspection and DI tests, plus the example AS via `WebApplicationFactory` (Razor consent form, EF Core) |
 | `tests/Gnap.Core.AotSmoke` | Native AOT smoke test: publishes Gnap.Core and Gnap.Client as a native binary (trim/AOT warnings are errors) and exercises JSON, JWK, proofing and a signed client grant at runtime |
 | `examples/HttpSignatures.Demo` | Self-contained test bed: vector checks plus a live signed-client-against-Kestrel demo |
 | `examples/VerifyingServer` | Standalone Kestrel resource server protected by the verification middleware |
@@ -135,6 +138,25 @@ app.MapGnapAuthorizationServer();   // POST /gnap/tx, /gnap/continue/…, /gnap/
 
 See [docs/gnap-authorization-server.md](docs/gnap-authorization-server.md) for the
 policy, consent UI, storage, tokens, introspection and security properties.
+
+Protect an API (resource server) with GNAP tokens:
+
+```csharp
+using Gnap.AspNetCore.ResourceServer;
+
+builder.Services.AddGnapResourceServer(o =>
+{
+    o.AuthorizationServer = new Uri("https://as.example");  // RFC 9767 discovery
+    o.ResourceServerId = "photo-rs";                         // registered at the AS
+    o.SigningKey = rsPrivateJwk;                             // signs introspection requests
+});                                                          // .UseJwtTokens(…) / .UseLocalTokenStore() for local verification
+
+app.UseGnapResourceServer();
+app.MapGet("/photos", () => "…").RequireGnapAccess("photo-api", "read");  // 401/403 + WWW-Authenticate: GNAP
+```
+
+See [docs/gnap-resource-server.md](docs/gnap-resource-server.md) for token
+validation modes, introspection caching, authorization and error semantics.
 
 ## Building & testing
 
