@@ -62,7 +62,7 @@ public sealed class GnapAccessToken
     public DateTimeOffset? ExpiresAt { get; }
 
     /// <summary>Whether the token offers token management (rotation and revocation).</summary>
-    public bool CanBeManaged => Token.Manage is { Uri: not null, AccessToken.Value: not null };
+    public bool CanBeManaged => Token.Manage is { Uri: not null } manage && manage.GetManagementTokenValue(Token.Value) is not null;
 
     /// <summary>Whether the token has expired at <paramref name="now"/>, treating the last <paramref name="skew"/> as expired.</summary>
     public bool IsExpired(DateTimeOffset now, TimeSpan skew = default) => ExpiresAt is { } expiresAt && now + skew >= expiresAt;

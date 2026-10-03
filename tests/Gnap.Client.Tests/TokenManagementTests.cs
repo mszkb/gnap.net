@@ -29,6 +29,25 @@ public class TokenManagementTests
     }
 
     [Fact]
+    public async Task UriOnlyManage_OpenPaymentsForm_RotatesAndRevokesWithTheAccessTokenItself()
+    {
+        // Regression (Rafiki interop): `manage` as a bare URI, the token authorizes itself.
+        using var h = ClientHarness.Create();
+        h.As.UriOnlyTokenManagement = true;
+        var token = await IssueAsync(h);
+        Assert.True(token.Token.Manage!.IsUriOnly);
+        Assert.True(token.CanBeManaged);
+
+        var rotated = await h.Client.RotateTokenAsync(token);
+        Assert.True(h.As.FindToken(token.Value)!.Revoked);
+        Assert.True(rotated.CanBeManaged);
+
+        await h.Client.RevokeTokenAsync(rotated);
+        Assert.True(h.As.FindToken(rotated.Value)!.Revoked);
+        h.AssertAllRequestsVerified(atLeast: 3);
+    }
+
+    [Fact]
     public async Task Revocation_DeletesAtManagementUri()
     {
         using var h = ClientHarness.Create();

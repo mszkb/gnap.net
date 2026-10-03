@@ -83,14 +83,36 @@ public sealed class AccessTokenResponse
     public bool IsBoundToClientKey => !IsBearer && Key is null;
 }
 
-/// <summary>The token management descriptor of an issued access token.</summary>
+/// <summary>
+/// The token management descriptor of an issued access token: the RFC 9635
+/// object form (<c>{"uri": ..., "access_token": {...}}</c>), or the URI-only string
+/// form of earlier GNAP drafts still used by Open Payments / Rafiki, where the
+/// access token itself authorizes its management (see <see cref="IsUriOnly"/>).
+/// </summary>
+[JsonConverter(typeof(Json.TokenManagementConverter))]
 public sealed class TokenManagement
 {
     /// <summary>The absolute URI of the token management API. Required.</summary>
     [JsonPropertyName("uri")]
     public string? Uri { get; set; }
 
-    /// <summary>The key-bound token management access token. Required.</summary>
+    /// <summary>The key-bound token management access token. Required in the RFC 9635 form.</summary>
     [JsonPropertyName("access_token")]
     public AccessTokenResponse? AccessToken { get; set; }
+
+    /// <summary>
+    /// Whether the AS sent <c>manage</c> as a bare URI string (pre-RFC drafts, Open
+    /// Payments). There is no separate management token then: management requests
+    /// present the managed access token itself. Serialized back as a string.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsUriOnly { get; set; }
+
+    /// <summary>
+    /// The token that authorizes management requests: the management access token,
+    /// or for the URI-only form the managed token's own value.
+    /// </summary>
+    /// <param name="managedTokenValue">The value of the access token this descriptor belongs to.</param>
+    public string? GetManagementTokenValue(string? managedTokenValue) =>
+        AccessToken?.Value ?? (IsUriOnly ? managedTokenValue : null);
 }

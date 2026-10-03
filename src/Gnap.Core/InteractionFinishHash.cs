@@ -42,6 +42,13 @@ public static class InteractionFinishHash
     /// computed value. Returns <see langword="false"/> for malformed input rather
     /// than throwing, so callers can treat any failure uniformly.
     /// </summary>
+    /// <remarks>
+    /// RFC 9635 Section 4.2.3 encodes the hash as base64url without padding. For
+    /// interoperability with authorization servers built on earlier drafts (notably
+    /// Rafiki / Open Payments, which sends standard padded base64), the canonical
+    /// padded base64 encoding of the same hash bytes is accepted as well; any other
+    /// spelling is rejected.
+    /// </remarks>
     public static bool Verify(
         string receivedHash,
         string clientNonce,
@@ -54,9 +61,14 @@ public static class InteractionFinishHash
         try
         {
             var expected = Compute(clientNonce, asNonce, interactRef, grantEndpointUri, hashMethod);
-            return CryptographicOperations.FixedTimeEquals(
-                Encoding.ASCII.GetBytes(expected),
-                Encoding.ASCII.GetBytes(receivedHash));
+            var received = Encoding.ASCII.GetBytes(receivedHash);
+            if (CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(expected), received))
+            {
+                return true;
+            }
+
+            var standardBase64 = Convert.ToBase64String(Base64Url.DecodeFromChars(expected));
+            return CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(standardBase64), received);
         }
         catch (GnapException)
         {

@@ -141,11 +141,11 @@ public sealed class GnapProtocolClient
         }
 
         using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Encoder = GnapJsonContext.Wire.Options.Encoder }))
         {
             writer.WriteStartObject();
             writer.WritePropertyName("key");
-            JsonSerializer.Serialize(writer, newKey.PresentedKey, GnapJsonContext.Default.GnapKey);
+            JsonSerializer.Serialize(writer, newKey.PresentedKey, GnapJsonContext.Wire.GnapKey);
             writer.WriteEndObject();
         }
 
@@ -318,7 +318,7 @@ public sealed class GnapProtocolClient
         ArgumentNullException.ThrowIfNull(token);
         if (token.Manage is not { } manage
             || !Uri.TryCreate(manage.Uri, UriKind.Absolute, out var uri)
-            || manage.AccessToken?.Value is not { } manageToken)
+            || manage.GetManagementTokenValue(token.Value) is not { } manageToken)
         {
             throw new GnapClientException("The access token offers no token management (missing 'manage.uri' or 'manage.access_token').");
         }

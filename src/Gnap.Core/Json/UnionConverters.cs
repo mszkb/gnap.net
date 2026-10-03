@@ -533,3 +533,69 @@ internal sealed class GnapErrorCodeConverter : JsonConverter<GnapErrorCode>
     public override void Write(Utf8JsonWriter writer, GnapErrorCode value, JsonSerializerOptions options) =>
         writer.WriteStringValue(value.Value);
 }
+
+/// <summary>
+/// Reads and writes <see cref="TokenManagement"/>: the RFC 9635 object form, and the
+/// URI-only string form of earlier drafts (still used by Open Payments / Rafiki).
+/// </summary>
+internal sealed class TokenManagementConverter : JsonConverter<TokenManagement>
+{
+    public override TokenManagement Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return new TokenManagement { Uri = reader.GetString(), IsUriOnly = true };
+        }
+
+        if (reader.TokenType != JsonTokenType.StartObject)
+        {
+            throw new JsonException("'manage' must be an object or a URI string.");
+        }
+
+        var result = new TokenManagement();
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndObject)
+        {
+            var name = reader.GetString()!;
+            reader.Read();
+            switch (name)
+            {
+                case "uri":
+                    result.Uri = reader.TokenType == JsonTokenType.String
+                        ? reader.GetString()
+                        : throw new JsonException("'manage.uri' must be a string.");
+                    break;
+                case "access_token":
+                    result.AccessToken = JsonSerializer.Deserialize(ref reader, JsonHelpers.TypeInfo<AccessTokenResponse>(options));
+                    break;
+                default:
+                    reader.Skip();
+                    break;
+            }
+        }
+
+        return result;
+    }
+
+    public override void Write(Utf8JsonWriter writer, TokenManagement value, JsonSerializerOptions options)
+    {
+        if (value.IsUriOnly)
+        {
+            writer.WriteStringValue(value.Uri);
+            return;
+        }
+
+        writer.WriteStartObject();
+        if (value.Uri is not null)
+        {
+            writer.WriteString("uri", value.Uri);
+        }
+
+        if (value.AccessToken is not null)
+        {
+            writer.WritePropertyName("access_token");
+            JsonSerializer.Serialize(writer, value.AccessToken, JsonHelpers.TypeInfo<AccessTokenResponse>(options));
+        }
+
+        writer.WriteEndObject();
+    }
+}

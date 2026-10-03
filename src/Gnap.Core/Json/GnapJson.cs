@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
 using Gnap.Core.Keys;
 using Gnap.Core.Models;
@@ -49,26 +50,41 @@ namespace Gnap.Core.Json;
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(JsonElement))]
-public sealed partial class GnapJsonContext : JsonSerializerContext;
+public sealed partial class GnapJsonContext : JsonSerializerContext
+{
+    /// <summary>
+    /// The context used for messages sent on the wire. Unlike <see cref="Default"/>,
+    /// it does not apply the HTML-safe escaping of <see cref="JavaScriptEncoder.Default"/>
+    /// (<c>+</c>, <c>&amp;</c>, <c>&lt;</c>, non-ASCII, ...): GNAP bodies are
+    /// <c>application/json</c>, never embedded in HTML, and some peers (e.g. Rafiki)
+    /// recompute <c>Content-Digest</c> over their own re-serialization of the parsed
+    /// body, which only matches when the client escapes like <c>JSON.stringify</c>.
+    /// </summary>
+    public static GnapJsonContext Wire { get; } = new(new JsonSerializerOptions
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    });
+}
 
 /// <summary>Convenience entry points for (de)serializing GNAP messages.</summary>
 public static class GnapJson
 {
     /// <summary>Serializes a grant request.</summary>
     public static string Serialize(GrantRequest request) =>
-        JsonSerializer.Serialize(request, GnapJsonContext.Default.GrantRequest);
+        JsonSerializer.Serialize(request, GnapJsonContext.Wire.GrantRequest);
 
     /// <summary>Serializes a grant response.</summary>
     public static string Serialize(GrantResponse response) =>
-        JsonSerializer.Serialize(response, GnapJsonContext.Default.GrantResponse);
+        JsonSerializer.Serialize(response, GnapJsonContext.Wire.GrantResponse);
 
     /// <summary>Serializes a continuation request.</summary>
     public static string Serialize(ContinueRequest request) =>
-        JsonSerializer.Serialize(request, GnapJsonContext.Default.ContinueRequest);
+        JsonSerializer.Serialize(request, GnapJsonContext.Wire.ContinueRequest);
 
     /// <summary>Serializes an interaction finish <c>push</c> body (RFC 9635 Section 4.2.2).</summary>
     public static string Serialize(InteractionFinishCallback callback) =>
-        JsonSerializer.Serialize(callback, GnapJsonContext.Default.InteractionFinishCallback);
+        JsonSerializer.Serialize(callback, GnapJsonContext.Wire.InteractionFinishCallback);
 
     /// <summary>Parses a grant request.</summary>
     /// <exception cref="JsonException">The JSON is malformed.</exception>

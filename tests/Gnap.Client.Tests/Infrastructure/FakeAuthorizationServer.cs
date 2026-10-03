@@ -56,6 +56,12 @@ internal sealed class FakeAuthorizationServer : HttpMessageHandler
     /// <summary>Whether issued tokens carry a <c>manage</c> descriptor.</summary>
     public bool OfferTokenManagement { get; set; } = true;
 
+    /// <summary>
+    /// Whether <c>manage</c> is sent as a bare URI (the Open Payments / Rafiki form):
+    /// the access token itself then authorizes its management.
+    /// </summary>
+    public bool UriOnlyTokenManagement { get; set; }
+
     /// <summary>Whether the AS returns no <c>interact.finish</c> nonce.</summary>
     public bool OmitFinishNonce { get; set; }
 
@@ -456,7 +462,8 @@ internal sealed class FakeAuthorizationServer : HttpMessageHandler
 
     private AccessTokenResponse Issue(IList<AccessRight>? access, JsonWebKey? boundKey, JsonWebKey managementKey, string? label)
     {
-        var token = new IssuedToken(NewValue(), NewValue(), NewValue(), boundKey, managementKey)
+        var value = NewValue();
+        var token = new IssuedToken(value, NewValue(), UriOnlyTokenManagement ? value : NewValue(), boundKey, managementKey)
         {
             Access = access,
             Label = label,
@@ -474,7 +481,8 @@ internal sealed class FakeAuthorizationServer : HttpMessageHandler
                 ? new TokenManagement
                 {
                     Uri = $"{AsBase}/token/{token.ManageId}",
-                    AccessToken = new AccessTokenResponse { Value = token.ManageToken },
+                    AccessToken = UriOnlyTokenManagement ? null : new AccessTokenResponse { Value = token.ManageToken },
+                    IsUriOnly = UriOnlyTokenManagement,
                 }
                 : null,
         };
