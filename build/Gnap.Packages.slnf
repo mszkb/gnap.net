@@ -1,0 +1,12 @@
+{
+  "solution": {
+    "path": "../Gnap.sln",
+    "projects": [
+      "src\\Gnap.HttpMessageSignatures\\Gnap.HttpMessageSignatures.csproj",
+      "src\\Gnap.HttpMessageSignatures.AspNetCore\\Gnap.HttpMessageSignatures.AspNetCore.csproj",
+      "src\\Gnap.Core\\Gnap.Core.csproj",
+      "src\\Gnap.Client\\Gnap.Client.csproj",
+      "src\\Gnap.AspNetCore\\Gnap.AspNetCore.csproj"
+    ]
+  }
+}

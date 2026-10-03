@@ -12,10 +12,45 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Package metadata defaults">
+    <!-- SemVer 2.0. The release workflow overrides Version from the git tag (v1.2.3 -> 1.2.3,
+         v1.2.3-preview.1 -> 1.2.3-preview.1); local and CI builds produce 0.1.0-dev. -->
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix Condition="'$(VersionSuffix)' == ''">dev</VersionSuffix>
     <Authors>gnap.net contributors</Authors>
+    <Copyright>Copyright (c) gnap.net contributors</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/mszkb/gnap.net</PackageProjectUrl>
     <RepositoryUrl>https://github.com/mszkb/gnap.net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes>https://github.com/mszkb/gnap.net/blob/main/CHANGELOG.md</PackageReleaseNotes>
   </PropertyGroup>
+
+  <PropertyGroup Label="Reproducible builds and Source Link">
+    <!-- Source Link (Microsoft.SourceLink.GitHub ships with the .NET SDK) maps the PDBs to the
+         exact commit on GitHub; generated sources that are not in git are embedded in the PDB. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
+    <DebugType>portable</DebugType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- Validates the package layout; add PackageValidationBaselineVersion after the first
+         release to also catch breaking API changes. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+
+  <!-- Normalized source paths (/_/...) on CI so PDBs and packages do not depend on the checkout
+       directory. Not enabled for local builds, where it would break local debugging paths. -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Every package ships its own README.md (rendered on nuget.org). -->
+  <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)/README.md')">
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/README.md')">
+    <None Include="$(MSBuildProjectDirectory)/README.md" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
 
 </Project>
