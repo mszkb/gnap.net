@@ -14,6 +14,7 @@ namespace Gnap.Core.Json;
 [JsonSerializable(typeof(GrantRequest))]
 [JsonSerializable(typeof(GrantResponse))]
 [JsonSerializable(typeof(ContinueRequest))]
+[JsonSerializable(typeof(InteractionFinishCallback))]
 [JsonSerializable(typeof(AccessTokenRequest))]
 [JsonSerializable(typeof(AccessTokenResponse))]
 [JsonSerializable(typeof(AccessRight))]
@@ -44,6 +45,7 @@ namespace Gnap.Core.Json;
 [JsonSerializable(typeof(IList<AccessTokenResponse>))]
 [JsonSerializable(typeof(IList<StartMode>))]
 [JsonSerializable(typeof(IList<string>))]
+[JsonSerializable(typeof(string))]
 [JsonSerializable(typeof(Dictionary<string, JsonElement>))]
 [JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(JsonElement))]
@@ -64,6 +66,10 @@ public static class GnapJson
     public static string Serialize(ContinueRequest request) =>
         JsonSerializer.Serialize(request, GnapJsonContext.Default.ContinueRequest);
 
+    /// <summary>Serializes an interaction finish <c>push</c> body (RFC 9635 Section 4.2.2).</summary>
+    public static string Serialize(InteractionFinishCallback callback) =>
+        JsonSerializer.Serialize(callback, GnapJsonContext.Default.InteractionFinishCallback);
+
     /// <summary>Parses a grant request.</summary>
     /// <exception cref="JsonException">The JSON is malformed.</exception>
     public static GrantRequest? DeserializeGrantRequest(string json) =>
@@ -78,4 +84,9 @@ public static class GnapJson
     /// <exception cref="JsonException">The JSON is malformed.</exception>
     public static ContinueRequest? DeserializeContinueRequest(string json) =>
         JsonSerializer.Deserialize(json, GnapJsonContext.Default.ContinueRequest);
+
+    /// <summary>Parses an interaction finish <c>push</c> body (RFC 9635 Section 4.2.2).</summary>
+    /// <exception cref="JsonException">The JSON is malformed.</exception>
+    public static InteractionFinishCallback? DeserializeFinishCallback(string json) =>
+        JsonSerializer.Deserialize(json, GnapJsonContext.Default.InteractionFinishCallback);
 }

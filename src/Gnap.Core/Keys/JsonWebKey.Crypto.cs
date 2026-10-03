@@ -208,6 +208,50 @@ public sealed partial class JsonWebKey
     };
 
     /// <summary>
+    /// Binds this key to an explicitly requested RFC 9421 signature algorithm, as
+    /// pinned by the <c>alg</c> parameter of an object-form <c>httpsig</c> proof
+    /// (RFC 9635 Section 7.3.1). The algorithm must be compatible with the key's
+    /// type, curve and JWS <c>alg</c>; <see langword="null"/> falls back to
+    /// <see cref="ToSignatureAlgorithm()"/>.
+    /// </summary>
+    /// <exception cref="GnapException">The algorithm does not fit the key.</exception>
+    public SignatureAlgorithm ToSignatureAlgorithm(string? httpSignatureAlgorithm)
+    {
+        if (httpSignatureAlgorithm is null)
+        {
+            return ToSignatureAlgorithm();
+        }
+
+        // RSA keys can serve both RSA algorithms; the JWS alg (when present) decides.
+        if (Kty == KeyTypes.Rsa)
+        {
+            return (httpSignatureAlgorithm, Alg) switch
+            {
+                ("rsa-pss-sha512", null or "PS512") => SignatureAlgorithm.RsaPssSha512(ToRsa()),
+                ("rsa-v1_5-sha256", null or "RS256") => SignatureAlgorithm.RsaV15Sha256(ToRsa()),
+                _ => throw new GnapException(
+                    $"The HTTP signature algorithm '{httpSignatureAlgorithm}' does not match the RSA JWK (alg '{Alg ?? "none"}')."),
+            };
+        }
+
+        var expected = (Kty, Crv) switch
+        {
+            (KeyTypes.Ec, "P-256") => "ecdsa-p256-sha256",
+            (KeyTypes.Ec, "P-384") => "ecdsa-p384-sha384",
+            (KeyTypes.Okp, "Ed25519") => "ed25519",
+            _ => null,
+        };
+
+        if (expected is not null && expected != httpSignatureAlgorithm)
+        {
+            throw new GnapException(
+                $"The HTTP signature algorithm '{httpSignatureAlgorithm}' does not match the key's algorithm '{expected}'.");
+        }
+
+        return ToSignatureAlgorithm();
+    }
+
+    /// <summary>
     /// Computes the RFC 7638 thumbprint (SHA-256 over the canonical required members,
     /// base64url encoded). OKP keys use the required members of RFC 8037.
     /// </summary>

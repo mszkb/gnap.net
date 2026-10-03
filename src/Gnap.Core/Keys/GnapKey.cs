@@ -50,11 +50,30 @@ public sealed class GnapKey
     }
 
     /// <summary>
-    /// Binds the JWK of this key to its RFC 9421 signature algorithm for verification.
+    /// Creates an <c>httpsig</c>-proofed key from a JWK, stripped to its public part,
+    /// whose proof method pins the signature and content digest algorithms
+    /// (object form of RFC 9635 Section 7.3.1).
     /// </summary>
-    /// <exception cref="GnapException">The key is a reference or carries no JWK.</exception>
+    /// <exception cref="GnapException">The JWK cannot be mapped to a signature algorithm.</exception>
+    public static GnapKey ForHttpSig(JsonWebKey jwk, ContentDigestAlgorithm contentDigestAlgorithm)
+    {
+        ArgumentNullException.ThrowIfNull(jwk);
+        var publicJwk = jwk.ToPublicKey();
+        return new GnapKey
+        {
+            Proof = ProofMethod.ForHttpSig(publicJwk.ToSignatureAlgorithm().Name, contentDigestAlgorithm),
+            Jwk = publicJwk,
+        };
+    }
+
+    /// <summary>
+    /// Binds the JWK of this key to its RFC 9421 signature algorithm for verification.
+    /// When the proof method pins an <c>alg</c> (object-form <c>httpsig</c>), that
+    /// algorithm is used and must be compatible with the key.
+    /// </summary>
+    /// <exception cref="GnapException">The key is a reference, carries no JWK, or the pinned algorithm does not fit.</exception>
     public SignatureAlgorithm ToSignatureAlgorithm() =>
-        Jwk?.ToSignatureAlgorithm()
+        Jwk?.ToSignatureAlgorithm(Proof?.HttpSigAlgorithm)
         ?? throw new GnapException(IsReference
             ? "A key reference must be resolved to key material before use."
             : "The key does not contain a JWK; other key formats must be resolved by the caller.");

@@ -40,8 +40,39 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
     /// </summary>
     public string? ExpectedKeyId { get; init; }
 
+    /// <summary>
+    /// When set, a message with content must carry a <c>Content-Digest</c> entry using
+    /// this algorithm, as pinned by the <c>content-digest-alg</c> parameter of an
+    /// object-form <c>httpsig</c> proof (see <see cref="ForKey"/>).
+    /// </summary>
+    public ContentDigestAlgorithm? RequiredContentDigestAlgorithm { get; init; }
+
     /// <summary>The clock used for timestamp checks; overridable for tests.</summary>
     public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
+
+    /// <summary>
+    /// Creates a validator configured from the client's presented key: the JWK
+    /// <c>kid</c> becomes the expected <c>keyid</c> and an object-form proof's
+    /// <c>content-digest-alg</c> becomes <see cref="RequiredContentDigestAlgorithm"/>.
+    /// The signature algorithm itself is enforced by the
+    /// <see cref="KeyProofContext.Key"/>, typically <see cref="GnapKey.ToSignatureAlgorithm"/>.
+    /// </summary>
+    /// <exception cref="GnapException">The key's proof method is not <c>httpsig</c> or pins an unsupported digest.</exception>
+    public static HttpSigKeyProofValidator ForKey(GnapKey key, INonceStore? nonceStore = null)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        if (key.Proof is { } proof && proof.Method != ProofMethod.Methods.HttpSig)
+        {
+            throw new GnapException($"The key uses the proofing method '{proof.Method}', not 'httpsig'.");
+        }
+
+        return new HttpSigKeyProofValidator
+        {
+            ExpectedKeyId = key.Jwk?.Kid,
+            RequiredContentDigestAlgorithm = key.Proof?.GetContentDigestAlgorithm(),
+            NonceStore = nonceStore,
+        };
+    }
 
     /// <inheritdoc />
     public async Task<KeyProofResult> ValidateAsync(KeyProofContext context, CancellationToken cancellationToken = default)
@@ -58,7 +89,14 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
                 return KeyProofResult.Failure("The message has content but no Content-Digest field.");
             }
 
-            var validation = ContentDigest.Validate(string.Join(", ", digestValues), context.Content!.Value.Span);
+            var digestField = string.Join(", ", digestValues);
+            if (RequiredContentDigestAlgorithm is { } requiredDigest && !HasDigestEntry(digestField, requiredDigest))
+            {
+                return KeyProofResult.Failure(
+                    $"The Content-Digest field has no '{ProofMethod.GetContentDigestAlgorithmName(requiredDigest)}' entry required by the key's proof method.");
+            }
+
+            var validation = ContentDigest.Validate(digestField, context.Content!.Value.Span);
             if (validation != ContentDigestValidation.Valid)
             {
                 return KeyProofResult.Failure($"Content-Digest validation failed: {validation}.");
@@ -146,6 +184,19 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
         }
 
         return KeyProofResult.Failure(lastFailure ?? "The message carries no acceptable signature.");
+    }
+
+    private static bool HasDigestEntry(string digestField, ContentDigestAlgorithm algorithm)
+    {
+        try
+        {
+            var name = ProofMethod.GetContentDigestAlgorithmName(algorithm);
+            return SfParser.ParseDictionary(digestField).Any(member => member.Key == name);
+        }
+        catch (SfParseException)
+        {
+            return false;
+        }
     }
 
     private sealed class FixedKeyResolver(SignatureAlgorithm key) : IVerificationKeyResolver

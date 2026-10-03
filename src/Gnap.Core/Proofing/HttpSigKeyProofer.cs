@@ -60,6 +60,13 @@ public sealed class HttpSigKeyProofer : IKeyProofer
     /// <summary>The clock used for the <c>created</c> parameter; overridable for tests.</summary>
     public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 
+    /// <summary>
+    /// The object-form <c>httpsig</c> proof method describing this proofer's
+    /// signature and content digest algorithms (RFC 9635 Section 7.3.1), for use
+    /// in the <c>key.proof</c> field the client presents to the AS.
+    /// </summary>
+    public ProofMethod ToProofMethod() => ProofMethod.ForHttpSig(_algorithm.Name, ContentDigestAlgorithm);
+
     /// <inheritdoc />
     public async Task AddProofAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {

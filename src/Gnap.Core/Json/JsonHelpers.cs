@@ -73,4 +73,11 @@ internal static class JsonHelpers
         fields ??= new Dictionary<string, JsonElement>(StringComparer.Ordinal);
         fields[name] = JsonElement.ParseValue(ref reader);
     }
+
+    /// <summary>Creates a standalone JSON string element without reflection.</summary>
+    public static JsonElement StringElement(string value)
+    {
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(value, GnapJsonContext.Default.String));
+        return document.RootElement.Clone();
+    }
 }
