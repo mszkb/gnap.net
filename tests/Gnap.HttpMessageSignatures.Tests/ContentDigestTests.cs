@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using Xunit;
 
@@ -96,5 +97,52 @@ public class ContentDigestTests
         var result = await ContentDigest.ValidateAsync(value, new MemoryStream(HelloWorldJson), maxContentLength: HelloWorldJson.Length);
 
         Assert.Equal(ContentDigestValidation.Valid, result);
+    }
+
+    [Fact]
+    public async Task StreamingValidation_RejectsInvalidArguments()
+    {
+        var value = ContentDigest.CreateHeaderValue(HelloWorldJson);
+
+        await Assert.ThrowsAsync<ArgumentNullException>("content", () => ContentDigest.ValidateAsync(value, null!));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            "maxContentLength",
+            () => ContentDigest.ValidateAsync(value, new MemoryStream(HelloWorldJson), maxContentLength: -1));
+    }
+
+    [Fact]
+    public async Task StreamingValidation_WithShortReads_StopsOneBytePastTheLimit()
+    {
+        // A stream that hands out at most 3 bytes per read forces several loop
+        // iterations, so the remaining budget must shrink with every read.
+        var value = ContentDigest.CreateHeaderValue(HelloWorldJson);
+        var content = new ChunkedStream(new byte[1000], chunkSize: 3);
+
+        var result = await ContentDigest.ValidateAsync(value, content, maxContentLength: 10);
+
+        Assert.Equal(ContentDigestValidation.ContentTooLarge, result);
+        Assert.Equal(11, content.Position);
+    }
+
+    [Fact]
+    public async Task StreamingValidation_ContentExactlyOneBufferLong_IsValidated()
+    {
+        // 16 KiB is the internal buffer size: the limit equals the buffer length exactly.
+        var content = RandomNumberGenerator.GetBytes(16 * 1024);
+        var value = ContentDigest.CreateHeaderValue(content);
+
+        var result = await ContentDigest.ValidateAsync(value, new MemoryStream(content), maxContentLength: content.Length);
+
+        Assert.Equal(ContentDigestValidation.Valid, result);
+    }
+
+    private sealed class ChunkedStream(byte[] data, int chunkSize) : MemoryStream(data)
+    {
+        public override int Read(byte[] buffer, int offset, int count) => base.Read(buffer, offset, Math.Min(count, chunkSize));
+
+        public override int Read(Span<byte> buffer) => base.Read(buffer[..Math.Min(buffer.Length, chunkSize)]);
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            base.ReadAsync(buffer[..Math.Min(buffer.Length, chunkSize)], cancellationToken);
     }
 }

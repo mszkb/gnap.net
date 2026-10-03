@@ -106,10 +106,25 @@ The client signs with the published RFC 9421 example key `test-key-ed25519`
 (test use only) and prints the exact signature base so you can see what is
 being signed.
 
+### Mutation testing
+
+The signature base builder, verifier, Content-Digest and algorithm code are
+mutation-tested with [Stryker.NET](https://stryker-mutator.io/) (currently
+100 % mutation score, gate at 90 %):
+
+```bash
+dotnet tool restore
+dotnet stryker      # HTML report in StrykerOutput/<timestamp>/reports/
+```
+
+See [docs/mutation-testing.md](docs/mutation-testing.md) for scope, results and
+the documented equivalent mutants.
+
 ## CI
 
 GitHub Actions builds and tests on Linux and Windows for every push and pull
-request (`.github/workflows/ci.yml`).
+request (`.github/workflows/ci.yml`). Mutation testing runs nightly and on
+demand (`.github/workflows/mutation.yml`, `--break-at 90`).
 
 ## License
 

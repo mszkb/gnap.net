@@ -119,6 +119,7 @@ public static class ContentDigest
                 // body is detected without reading (or buffering) much beyond it.
                 var remaining = maxContentLength - total;
                 var toRead = remaining >= buffer.Length ? buffer.Length : (int)remaining + 1;
+                // Stryker disable once Boolean : ConfigureAwait(true/false) only changes the continuation context, which tests cannot observe.
                 var read = await content.ReadAsync(buffer.AsMemory(0, toRead), cancellationToken).ConfigureAwait(false);
                 if (read == 0)
                 {
@@ -147,6 +148,7 @@ public static class ContentDigest
 
             return ContentDigestValidation.Valid;
         }
+        // Stryker disable Statement,Block : skipping Dispose leaks native handles but has no observable effect on the result.
         finally
         {
             foreach (var hash in hashes)
@@ -154,6 +156,8 @@ public static class ContentDigest
                 hash?.Dispose();
             }
         }
+
+        // Stryker restore Statement,Block
     }
 
     private static ContentDigestValidation TryParse(

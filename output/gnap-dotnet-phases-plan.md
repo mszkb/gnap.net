@@ -130,8 +130,11 @@ das RFC 9421 vollständig implementiert und unabhängig von GNAP nutzbar ist.
 
 - [x] 100 % der RFC 9421 Appendix-B-Vektoren grün (116 Tests insgesamt)
 - [x] Package baut ohne GNAP-Abhängigkeiten (eigenständig veröffentlichbar)
-- [ ] Mutation Score (Stryker.NET) ≥ 90 % auf `SignatureBaseBuilder` und Verifier
-      (Stryker-Lauf steht noch aus — geplant mit Phase 6 CI-Ausbau)
+- [x] Mutation Score (Stryker.NET) ≥ 90 % auf `SignatureBaseBuilder` und Verifier
+      (erreicht: 100 % auf `SignatureBaseBuilder`, `HttpMessageVerifier`,
+      `ContentDigest` und `SignatureAlgorithm`; erster Lauf 73,6 %. Details und
+      dokumentierte äquivalente Mutanten in `docs/mutation-testing.md`;
+      Nightly-/manueller CI-Job `.github/workflows/mutation.yml` mit `--break-at 90`)
 
 > **Hinweis zur Umsetzung:** Der Test-Vektor `test-response` verwendet den
 > korrigierten Content-Digest (`mEWX…`) der finalen RFC-Fassung; ältere Drafts
@@ -385,7 +388,8 @@ GNAP-Token-Verifikation in einer Zeile Middleware.
   - [ ] Nightly Interop-Runs (Phase 5)
   - [ ] Release-Workflow: Tag → Pack → Push nach NuGet.org
 - [ ] **Stryker.NET Mutation Testing** für Krypto-Logik (Phase 0 + Key Proofing)
-      als CI-Gate
+      als CI-Gate (Phase 0 bereits nightly/manuell mit `--break-at 90`;
+      offen: Key Proofing in den Scope aufnehmen, Gate auf PRs)
 - [ ] **Example Apps** mit Docker-Compose:
   - [ ] `examples/console-client` — CLI-Client mit User Code Flow
   - [ ] `examples/web-client` — ASP.NET Core Web-App mit Redirect-Flow

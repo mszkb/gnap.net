@@ -1,0 +1,34 @@
+name: Mutation testing
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *' # nightly
+
+jobs:
+  stryker:
+    name: Stryker.NET (break at 90 %)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Run Stryker.NET
+        run: dotnet stryker --break-at 90 --output StrykerOutput/ci
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: StrykerOutput/ci/reports
+          retention-days: 14

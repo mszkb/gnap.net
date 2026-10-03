@@ -208,6 +208,8 @@ public static class SignatureBaseBuilder
         // Strip leading/trailing whitespace and collapse obs-fold line breaks
         // (RFC 9421 Section 2.1).
         var trimmed = value.Trim(' ', '\t');
+
+        // Stryker disable once Block : the fast path is an optimization; the general path below yields the same result.
         if (!trimmed.Contains('\n') && !trimmed.Contains('\r'))
         {
             return trimmed;

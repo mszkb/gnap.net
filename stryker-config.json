@@ -1,0 +1,18 @@
+{
+  "stryker-config": {
+    "solution": "Gnap.sln",
+    "project": "Gnap.HttpMessageSignatures.csproj",
+    "test-projects": [
+      "tests/Gnap.HttpMessageSignatures.Tests/Gnap.HttpMessageSignatures.Tests.csproj"
+    ],
+    "mutate": [
+      "**/SignatureBaseBuilder.cs",
+      "**/HttpMessageVerifier.cs",
+      "**/ContentDigest.cs",
+      "**/SignatureAlgorithm.cs"
+    ],
+    "reporters": [ "cleartext", "html", "json", "markdown" ],
+    "thresholds": { "high": 95, "low": 90, "break": 90 },
+    "coverage-analysis": "perTest"
+  }
+}

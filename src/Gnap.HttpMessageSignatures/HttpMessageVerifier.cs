@@ -187,6 +187,7 @@ public sealed class HttpMessageVerifier
         if (parameters.Expires is { } expires)
         {
             var expiresEnd = expires + _options.ClockSkew;
+            // Stryker disable once Equality : '<' vs '<=' is equivalent here, both pick the same instant when end == expiresEnd.
             windowEnd = windowEnd is { } end && end < expiresEnd ? end : expiresEnd;
         }
 
@@ -248,6 +249,7 @@ public sealed class HttpMessageVerifier
             }
         }
 
+        // Stryker disable once Boolean : ConfigureAwait(true/false) only changes the continuation context, which tests cannot observe.
         var algorithm = await _options.KeyResolver
             .ResolveAsync(parameters.KeyId, parameters.Algorithm, cancellationToken)
             .ConfigureAwait(false);
@@ -298,9 +300,7 @@ public sealed class HttpMessageVerifier
 
     private static SfDictionary ParseDictionaryField(IHttpMessageContext message, string fieldName)
     {
-        var values = message.GetFieldValues(fieldName);
-        return values.Count == 0
-            ? new SfDictionary()
-            : SfParser.ParseDictionary(string.Join(", ", values));
+        // An absent field joins to the empty string, which parses as an empty dictionary.
+        return SfParser.ParseDictionary(string.Join(", ", message.GetFieldValues(fieldName)));
     }
 }
