@@ -92,7 +92,9 @@ das RFC 9421 vollständig implementiert und unabhängig von GNAP nutzbar ist.
   - [x] `@signature-params`-Zeile (Structured Fields Serialization, RFC 8941 —
         eigener Parser/Serializer in `StructuredFields/`)
 - [x] **Signer:** `HttpMessageSigner` über `SignatureAlgorithm`-Abstraktion
-  - [x] Ed25519 (`ed25519`, via BouncyCastle — .NET 8 hat kein natives Ed25519)
+  - [x] Ed25519 (`ed25519`, via BouncyCastle — auch .NET 10 bietet keine eigenständige
+        öffentliche Ed25519-API; Ed25519 taucht dort nur als Teil der
+        Composite-ML-DSA-Algorithmen auf, z. B. `CompositeMLDsaAlgorithm.MLDsa65WithEd25519`)
   - [x] ECDSA P-256 / SHA-256 (`ecdsa-p256-sha256`)
   - [x] ECDSA P-384 / SHA-384 (`ecdsa-p384-sha384`)
   - [x] RSA-PSS / SHA-512 (`rsa-pss-sha512`) + RSA v1.5 / SHA-256 (`rsa-v1_5-sha256`)
@@ -424,7 +426,7 @@ GNAP-Token-Verifikation in einer Zeile Middleware.
 
 | Package | Inhalt | Abhängigkeiten |
 |---------|--------|----------------|
-| `Gnap.HttpMessageSignatures` | RFC 9421 + RFC 9530, Middleware, `DelegatingHandler` | — (nur BCL) |
+| `Gnap.HttpMessageSignatures` | RFC 9421 + RFC 9530, Middleware, `DelegatingHandler` | `BouncyCastle.Cryptography` (nur für Ed25519) |
 | `Gnap.Core` | JWK, Key Proofing, Modelle, Finish Hash | `Gnap.HttpMessageSignatures` |
 | `Gnap.Client` | GNAP-Client, Discovery, Flows, Token Management | `Gnap.Core` |
 | `Gnap.AspNetCore` | AS-Framework + RS-Middleware | `Gnap.Core`, ASP.NET Core |

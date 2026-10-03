@@ -429,8 +429,9 @@ var ecdsa         = PemKeyLoader.LoadEcdsa(pem);    // SEC1 "EC PRIVATE KEY" or 
 var (pub, priv)   = PemKeyLoader.LoadEd25519(pem);  // PKCS#8 / SubjectPublicKeyInfo
 ```
 
-(Ed25519 comes from BouncyCastle because .NET 10 still has no built-in
-Ed25519 type; the raw 32-byte keys are exposed so BouncyCastle never leaks
+(Ed25519 comes from BouncyCastle because .NET 10 still has no standalone
+public Ed25519 type — it only appears inside the composite ML-DSA
+algorithms; the raw 32-byte keys are exposed so BouncyCastle never leaks
 into your code.)
 
 ## 13. Try it yourself: the example apps
