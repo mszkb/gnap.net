@@ -282,46 +282,63 @@ mit pluggbarer Policy und Storage.
 
 ### Aufgaben
 
-- [ ] **Grant Endpoint (`POST /tx`):** Request-Parsing, Signatur-/Key-Proof-Verifikation,
-      Client-Identifikation (Key by value/reference), Grant-State-Machine
-      (`processing`, `pending`, `approved`, `finalized`, `revoked`)
-- [ ] **Interaction Flows:**
-  - [ ] Redirect-Endpoint mit Session-Bindung
-  - [ ] Consent UI (Razor-Pages-Referenzimplementierung, austauschbar via Interface)
-  - [ ] User Code Eingabe-Endpoint
-  - [ ] Finish: Redirect mit `interact_ref` + `hash`, Push-Notification
-- [ ] **Continuation Endpoint:** Continuation-Token-Verifikation (key-bound),
-      `interact_ref`-Abgleich, Finish-Hash-Erzeugung, `wait`-Steuerung, Einmaligkeit
-      von `interact_ref`
-- [ ] **Token Issuance:** key-bound Tokens (Default) und Bearer-Tokens, Token-Format
-      pluggable (`ITokenFormat`: opaque + Referenz-Store, optional JWT), Multi-Token-Responses
-      (`access_token` als Array), Token-Management-URIs
-- [ ] **Policy Engine:** `IGrantPolicy` — entscheidet pro Request über
+- [x] **Grant Endpoint (`POST /tx`):** Request-Parsing, Signatur-/Key-Proof-Verifikation
+      (inkl. Nonce-Replay-Schutz), Client-Identifikation (Key by value/reference,
+      Instance-ID), Grant-State-Machine (`processing`, `pending`, `approved`,
+      `finalized`, `revoked`; `GrantStateMachine` + `GrantRecord.TransitionTo`)
+- [x] **Interaction Flows:**
+  - [x] Redirect-Endpoint mit Session-Bindung (HttpOnly-Cookie, erster Browser gewinnt)
+  - [x] Consent UI (Razor-Pages-Referenzimplementierung in
+        `examples/GnapAuthorizationServer`, austauschbar via `IGnapInteractionPage`
+        + `IGnapInteractionService`)
+  - [x] User Code Eingabe-Endpoint (`/device`, `user_code` und `user_code_uri`, Code einmalig)
+  - [x] Finish: Redirect mit `interact_ref` + `hash`, Push-Notification
+- [x] **Continuation Endpoint:** Continuation-Token-Verifikation (key-bound, rotierend),
+      `interact_ref`-Abgleich, Finish-Hash-Erzeugung, `wait`-Steuerung (`too_fast`),
+      Einmaligkeit von `interact_ref`; `DELETE` widerruft den Grant samt Tokens
+- [x] **Token Issuance:** key-bound Tokens (Default) und Bearer-Tokens (opt-in),
+      Token-Format pluggable (`ITokenFormat`: opaque + Referenz-Store, optional JWT),
+      Multi-Token-Responses (`access_token` als Array), Token-Management-URIs
+      (Rotation, Key-Rotation, Revocation)
+- [x] **Policy Engine:** `IGrantPolicy` — entscheidet pro Request über
       `approve/deny/require-interaction`, Zugriff auf Client-Identität, angefragte
-      Rechte, Subject-Informationen
-- [ ] **Storage-Abstraktion:** `IGrantStore`, `ITokenStore`, `IClientKeyStore`
-      (In-Memory-Referenz + EF-Core-Beispiel)
-- [ ] **RS-Facing Features (Vorbereitung Phase 4):** Introspection Endpoint
-      (RFC 9767 §3.3) mit RS-Authentifizierung
+      Rechte, Subject-Informationen; Default `DenyAllGrantPolicy`
+- [x] **Storage-Abstraktion:** `IGrantStore`, `ITokenStore`, `IClientKeyStore`
+      (+ `IResourceServerStore`; In-Memory-Referenz + EF-Core-Beispiel in
+      `examples/GnapAuthorizationServer/Storage`)
+- [x] **RS-Facing Features (Vorbereitung Phase 4):** Introspection Endpoint
+      (RFC 9767 §3.3) mit RS-Authentifizierung (registrierter RS, httpsig)
 
 ### Tests
 
-- [ ] **End-to-End mit echtem Client aus Phase 2** (`WebApplicationFactory`):
-      kompletter Flow inkl. Consent-Simulation
-- [ ] **Security Tests:**
-  - [ ] Replay eines signierten Requests (Nonce/created-Fenster) → abgelehnt
-  - [ ] Unsolicited Continuation (fremdes/abgelaufenes Continuation Token) → abgelehnt
-  - [ ] Manipulierter `interact_ref` → abgelehnt, Grant bleibt unberührt
-  - [ ] Doppelte Continuation nach Finish → `unknown_interaction`
-  - [ ] Key-Mismatch zwischen Grant Request und Continuation → abgelehnt
-- [ ] **Policy Tests:** deterministische Entscheidungen, Deny-by-Default
-- [ ] State-Machine-Tests: illegale Übergänge unmöglich
+- [x] **End-to-End mit echtem Client aus Phase 2** (`TestServer` bzw.
+      `WebApplicationFactory` für das Beispiel-AS): kompletter Flow inkl. Consent-Simulation
+- [x] **Security Tests:**
+  - [x] Replay eines signierten Requests (Nonce/created-Fenster) → abgelehnt
+  - [x] Unsolicited Continuation (fremdes/abgelaufenes Continuation Token) → abgelehnt
+  - [x] Manipulierter `interact_ref` → abgelehnt, Grant bleibt unberührt
+  - [x] Doppelte Continuation nach Finish → `unknown_interaction`
+  - [x] Key-Mismatch zwischen Grant Request und Continuation → abgelehnt
+- [x] **Policy Tests:** deterministische Entscheidungen, Deny-by-Default
+- [x] State-Machine-Tests: illegale Übergänge unmöglich
 
 ### Akzeptanzkriterien
 
 - ✅ Phase-2-Client absolviert alle Flows gegen den AS ohne Sonderbehandlung
 - ✅ Alle Security-Negativtests grün, Fehlerantworten ohne Informationsleck
 - ✅ Policy und Storage vollständig über DI austauschbar
+- 89 Tests in `Gnap.AspNetCore.Tests`; Doku: `docs/gnap-authorization-server.md`
+
+> **Hinweise zur Umsetzung:** Die Razor-Pages-Consent-Seite liegt bewusst im
+> Beispiel-AS statt in der Library: Consent erfordert die Anmeldung des RO, die
+> jede Anwendung selbst regelt. Die Library liefert dafür `IGnapInteractionService`
+> (Anzeige, Approve/Deny inkl. Finish) und eine abhängigkeitsfreie
+> `DefaultInteractionPage` (Weiterleitung zur Consent-Seite, User-Code-Formular).
+> Grant-Modifikation (`PATCH`, RFC 9635 §5.3) ist optional und wird mit
+> `invalid_request` beantwortet. Neben den geforderten Stores gibt es
+> `IResourceServerStore` für die RS-Authentifizierung am Introspection-Endpoint.
+> Geheimnisse (Token-Werte, Continuation-/Management-Tokens, `interact_ref`,
+> Session-Bindung) werden nur als SHA-256-Hash gespeichert.
 
 ---
 

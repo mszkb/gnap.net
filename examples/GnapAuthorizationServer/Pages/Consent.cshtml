@@ -1,0 +1,66 @@
+@page
+@model ConsentModel
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Authorize access</title>
+</head>
+<body>
+@if (Model.Pending is null)
+{
+  <h1>This request is not available</h1>
+  <p>It is unknown, has expired, was already completed, or was opened in a different browser.</p>
+}
+else
+{
+  var client = Model.Pending.Client;
+  <h1>@(client.Display?.Name ?? "An application") wants access</h1>
+  @if (!client.IsRegistered)
+  {
+    <p><small>The application's name is self-asserted. Key thumbprint: <code>@client.KeyThumbprint</code></small></p>
+  }
+
+  <ul>
+  @foreach (var token in Model.Pending.AccessTokens)
+  {
+    @foreach (var right in token.Access ?? [])
+    {
+      <li>
+        @if (right.IsReference)
+        {
+          <code>@right.Reference</code>
+        }
+        else
+        {
+          <strong>@right.Type</strong> @string.Join(", ", right.Actions ?? [])
+          @if (right.Locations is { Count: > 0 })
+          {
+            <span>at @string.Join(", ", right.Locations)</span>
+          }
+        }
+        @if (token.IsBearer)
+        {
+          <em>(bearer token)</em>
+        }
+      </li>
+    }
+  }
+  </ul>
+  @if (Model.Pending.Subject is not null)
+  {
+    <p>The application also asks who you are.</p>
+  }
+
+  <form method="post">
+    <input type="hidden" asp-for="Interaction">
+    <label asp-for="UserName">Your user name</label>
+    <input asp-for="UserName" autocomplete="username">
+    <span asp-validation-for="UserName"></span>
+    <button type="submit" asp-page-handler="Approve">Approve</button>
+    <button type="submit" asp-page-handler="Deny">Deny</button>
+  </form>
+}
+</body>
+</html>

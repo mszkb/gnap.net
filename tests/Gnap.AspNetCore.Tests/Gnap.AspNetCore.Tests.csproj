@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\examples\GnapAuthorizationServer\GnapAuthorizationServer.csproj" />
     <ProjectReference Include="..\..\src\Gnap.AspNetCore\Gnap.AspNetCore.csproj" />
     <ProjectReference Include="..\..\src\Gnap.Client\Gnap.Client.csproj" />
     <ProjectReference Include="..\..\src\Gnap.Core\Gnap.Core.csproj" />

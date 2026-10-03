@@ -58,3 +58,8 @@ nunit-*.xml
 
 # Stryker.NET mutation testing reports
 StrykerOutput/
+
+# Example AS database (examples/GnapAuthorizationServer)
+*.db
+*.db-shm
+*.db-wal

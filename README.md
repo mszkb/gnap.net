@@ -12,11 +12,14 @@ New here? Two plain-language guides build the concepts up from zero:
   roles, keys, key proofing, the interaction dance (Phase 1)
 - **[Using Gnap.Client](docs/gnap-client.md)** — requesting access from a GNAP AS
   with the client library (Phase 2)
+- **[Running a GNAP authorization server](docs/gnap-authorization-server.md)** —
+  embedding the AS in ASP.NET Core with `Gnap.AspNetCore` (Phase 3)
 
 ## Status
 
 **Phase 0 — HTTP Message Signatures (RFC 9421)**,
-**Phase 1 — GNAP Core Primitives** and **Phase 2 — Client Library** are implemented:
+**Phase 1 — GNAP Core Primitives**, **Phase 2 — Client Library** and
+**Phase 3 — Authorization Server** are implemented:
 
 | Project | Contents |
 |---------|----------|
@@ -24,13 +27,16 @@ New here? Two plain-language guides build the concepts up from zero:
 | `src/Gnap.HttpMessageSignatures.AspNetCore` | ASP.NET Core middleware verifying signatures and content digests on incoming requests, with optional nonce-based replay protection |
 | `src/Gnap.Core` | RFC 9635 building blocks: `JsonWebKey` (EC/OKP/RSA, RFC 7638 thumbprints, conversion to signing keys), `httpsig` key proofing (string and object form with pinned `alg`/`content-digest-alg`) with nonce replay protection, the interaction finish hash and finish callback (redirect/push), `Authorization: GNAP` token presentation, and source-generated JSON models for grant requests/responses (Native-AOT-verified) |
 | `src/Gnap.Client` | GNAP client without ASP.NET Core dependency: AS discovery (`OPTIONS` on the grant endpoint, `/.well-known/gnap-as-rs`, RS `WWW-Authenticate` challenge) with metadata caching, httpsig-signed grant requests (key by value/reference, instance id), redirect/push/user-code interaction with finish-hash verification, continuation and polling (`wait`, `too_fast` back-off, rotating continuation tokens), 5xx retries with fresh signatures, token rotation/revocation/key rotation, self-refreshing tokens and an `HttpClient` handler for RS calls, typed GNAP errors, `services.AddGnapClient(...)` |
+| `src/Gnap.AspNetCore` | Embeddable GNAP authorization server: grant endpoint with httpsig key proof verification and nonce replay protection, grant state machine, redirect and user-code interaction with browser session binding and redirect/push finish, continuation (rotating key-bound continuation tokens, `wait`, single-use `interact_ref`), key-bound and bearer tokens with pluggable `ITokenFormat` (opaque, JWT), multi-token responses, token rotation/key rotation/revocation, RFC 9767 introspection with RS authentication, discovery; deny-by-default `IGrantPolicy`, `IGrantStore`/`ITokenStore`/`IClientKeyStore`/`IResourceServerStore` with in-memory defaults, all replaceable via DI |
 | `tests/Gnap.HttpMessageSignatures.Tests` | 224 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) and FsCheck property tests (deterministic signature base, header order/casing invariance, sign→verify for all algorithms, tamper sensitivity, RFC 8941 and `@query-param` codec roundtrips) |
 | `tests/Gnap.Core.Tests` | 108 tests: RFC 7638/8037 thumbprint vectors, RFC 9635 §4.2.3 finish-hash vectors, key-proof negative tests (wrong key, tampered body/method/URI/token, replay, wrong tag/alg/keyid/digest, stale), JSON round-trips with unknown-member tolerance |
 | `tests/Gnap.Client.Tests` | 93 tests against an in-memory mock AS that verifies the signature of **every** client request with the Phase 0/1 verifier (nonce replay protection on): full redirect/push/user-code flows, all 13 registered error codes, `user_denied`/`too_fast`/`unknown_interaction`, 5xx retry, finish hash valid/tampered/missing/replayed, token expiry → rotation, key rotation, discovery caching, DI |
+| `tests/Gnap.AspNetCore.Tests` | 89 tests: the unmodified Phase 2 client against the real AS on a `TestServer` (redirect/push/user-code flows with simulated consent, polling, multi-token, bearer, rotation, key rotation, revocation, instance ids, key references, discovery, JWT tokens), security negative tests (replay, stale signatures, foreign/rotated/expired/unknown continuation with byte-identical errors, tampered and reused `interact_ref`, key mismatch, session binding, single-use user codes, concurrent continuations), policy, state machine, introspection and DI tests, plus the example AS via `WebApplicationFactory` (Razor consent form, EF Core) |
 | `tests/Gnap.Core.AotSmoke` | Native AOT smoke test: publishes Gnap.Core and Gnap.Client as a native binary (trim/AOT warnings are errors) and exercises JSON, JWK, proofing and a signed client grant at runtime |
 | `examples/HttpSignatures.Demo` | Self-contained test bed: vector checks plus a live signed-client-against-Kestrel demo |
 | `examples/VerifyingServer` | Standalone Kestrel resource server protected by the verification middleware |
 | `examples/SigningClient` | CLI that signs requests, prints the signature base/headers and calls any URL |
+| `examples/GnapAuthorizationServer` | A runnable GNAP AS: `Gnap.AspNetCore` endpoints, Razor Pages consent UI (reference `IGnapInteractionService` client), EF Core/SQLite stores, a demo policy |
 | `examples/GnapCore.Demo` | Guided GNAP walkthrough: JWKs and thumbprints, grant-request JSON, key proofing (incl. replay/tamper rejection), finish-hash vectors, and a live signed grant negotiation against an in-process mini AS |
 
 Requires the **.NET 10 SDK**.
@@ -113,12 +119,30 @@ var api = new HttpClient(new GnapAccessTokenHandler(
 See [docs/gnap-client.md](docs/gnap-client.md) for redirect/push flows, web apps,
 token management, discovery, errors and DI.
 
+Run a GNAP authorization server in ASP.NET Core:
+
+```csharp
+using Gnap.AspNetCore.AuthorizationServer;
+using Gnap.AspNetCore.AuthorizationServer.Policy;
+
+builder.Services
+    .AddGnapAuthorizationServer()                                // in-memory stores, opaque tokens
+    .AddGrantPolicy(_ => GrantDecision.RequireInteraction());    // deny-by-default otherwise
+
+app.MapGnapAuthorizationServer();   // POST /gnap/tx, /gnap/continue/…, /gnap/interact/…, /gnap/device, …
+// plus a consent page at /consent that calls IGnapInteractionService.ApproveAsync/DenyAsync
+```
+
+See [docs/gnap-authorization-server.md](docs/gnap-authorization-server.md) for the
+policy, consent UI, storage, tokens, introspection and security properties.
+
 ## Building & testing
 
 ```bash
 dotnet test                                        # full suite incl. RFC 9421 vectors
 dotnet run --project examples/HttpSignatures.Demo  # manual test: vectors + live demo
 dotnet run --project examples/GnapCore.Demo        # GNAP walkthrough + live mini-AS round trip
+dotnet run --project examples/GnapAuthorizationServer --urls http://localhost:5100   # a GNAP AS with consent UI
 
 # Native AOT smoke test for Gnap.Core + Gnap.Client (needs clang/zlib, as for any Native AOT publish)
 dotnet publish tests/Gnap.Core.AotSmoke -c Release -r linux-x64 -o artifacts/aot-smoke
