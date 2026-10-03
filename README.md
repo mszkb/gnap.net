@@ -18,10 +18,10 @@ New here? Two plain-language guides build the concepts up from zero:
 
 | Project | Contents |
 |---------|----------|
-| `src/Gnap.HttpMessageSignatures` | RFC 9421 signature base canonicalization, signing/verification (Ed25519, ECDSA P-256/P-384, RSA-PSS, RSA v1.5, HMAC-SHA256), RFC 9530 `Content-Digest`, RFC 8941 structured fields, PEM key loading, `HttpClient` `DelegatingHandler` |
-| `src/Gnap.HttpMessageSignatures.AspNetCore` | ASP.NET Core middleware verifying signatures and content digests on incoming requests |
+| `src/Gnap.HttpMessageSignatures` | RFC 9421 signature base canonicalization, signing/verification (Ed25519, ECDSA P-256/P-384, RSA-PSS, RSA v1.5, HMAC-SHA256), RFC 9530 `Content-Digest`, RFC 8941 structured fields, nonce replay protection (`INonceStore`), PEM key loading, `HttpClient` `DelegatingHandler` |
+| `src/Gnap.HttpMessageSignatures.AspNetCore` | ASP.NET Core middleware verifying signatures and content digests on incoming requests, with optional nonce-based replay protection |
 | `src/Gnap.Core` | RFC 9635 building blocks: `JsonWebKey` (EC/OKP/RSA, RFC 7638 thumbprints, conversion to signing keys), `httpsig` key proofing with nonce replay protection, the interaction finish hash, and source-generated JSON models for grant requests/responses |
-| `tests/Gnap.HttpMessageSignatures.Tests` | 116 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) |
+| `tests/Gnap.HttpMessageSignatures.Tests` | 134 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) |
 | `tests/Gnap.Core.Tests` | 67 tests: RFC 7638/8037 thumbprint vectors, RFC 9635 §4.2.3 finish-hash vectors, key-proof negative tests (wrong key, tampered body, replay, …), JSON round-trips with unknown-member tolerance |
 | `examples/HttpSignatures.Demo` | Self-contained test bed: vector checks plus a live signed-client-against-Kestrel demo |
 | `examples/VerifyingServer` | Standalone Kestrel resource server protected by the verification middleware |
@@ -64,10 +64,19 @@ builder.Services.AddHttpMessageSignatureVerification(options =>
 {
     options.KeyResolver = new StaticKeyResolver().Add("my-client", SignatureAlgorithm.Ed25519(publicKey));
     options.RequiredComponents = [SignatureComponent.Method, SignatureComponent.TargetUri];
+
+    // Optional replay protection (RFC 9421 §7.2.2): each nonce is accepted once per
+    // keyid within the created + MaxAge + ClockSkew window. Clients sign with NonceLength set.
+    options.NonceStore = new InMemoryNonceStore();
+    options.RequireNonce = true;
 });
 
 app.UseHttpMessageSignatureVerification();
 ```
+
+Nonces are recorded only after the signature verified, so forged requests cannot
+"burn" a legitimate client's nonce. `InMemoryNonceStore` suits a single process;
+implement `INonceStore` (atomically) over a shared cache for multi-instance deployments.
 
 ## Building & testing
 

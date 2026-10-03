@@ -39,6 +39,23 @@ public sealed class HttpMessageSignatureOptions
     /// </summary>
     public long MaxBufferedContentLength { get; set; } = 1024 * 1024;
 
+    /// <summary>
+    /// The replay protection store. When set, each signature's <c>nonce</c> is recorded
+    /// (scoped by <c>keyid</c>) for the signature's acceptance window, and a repeated
+    /// nonce is rejected with 401. Use one store instance for the whole application
+    /// (or a shared, atomic implementation across server instances).
+    /// </summary>
+    public INonceStore? NonceStore { get; set; }
+
+    /// <summary>Whether every signature must carry a <c>nonce</c> parameter. Defaults to <see langword="false"/>.</summary>
+    public bool RequireNonce { get; set; }
+
+    /// <summary>
+    /// How long nonces are remembered when <see cref="MaxAge"/> is unset and the
+    /// signature has no <c>expires</c>. Defaults to 15 minutes.
+    /// </summary>
+    public TimeSpan NonceRetention { get; set; } = TimeSpan.FromMinutes(15);
+
     /// <summary>Paths (exact prefix match) excluded from signature verification.</summary>
     public IReadOnlyCollection<PathString> ExcludedPaths { get; set; } = [];
 
@@ -82,6 +99,9 @@ public sealed class HttpMessageSignatureMiddleware
             ClockSkew = _options.ClockSkew,
             MaxAge = _options.MaxAge,
             RequiredComponents = _options.RequiredComponents,
+            NonceStore = _options.NonceStore,
+            RequireNonce = _options.RequireNonce,
+            NonceRetention = _options.NonceRetention,
             TimeProvider = _options.TimeProvider,
         });
     }

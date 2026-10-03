@@ -315,6 +315,9 @@ Gnap.HttpMessageSignatures                       (no ASP.NET dependency)
 ├── HttpMessageVerifier          Verification workflow (Section 8).
 ├── IVerificationKeyResolver     Your hook: keyid → key. StaticKeyResolver is
 │                                a ready-made in-memory implementation.
+├── INonceStore                  Replay memory (nonce per keyid until the
+│                                acceptance window ends). InMemoryNonceStore
+│                                included; implement over Redis/DB for clusters.
 │
 ├── ContentDigest                RFC 9530 Content-Digest create + validate.
 ├── HttpSignatureDelegatingHandler   Plug into HttpClient: auto digest + sign.
@@ -483,9 +486,14 @@ Rule of thumb: cover what must not change, leave the rest free.
 ## 15. Security features you get for free
 
 - **Replay resistance:** `created`/`expires`/`MaxAge` bound the time window;
-  the optional `nonce` makes each signature unique. (Full replay *prevention*
-  — remembering seen nonces — is application policy and arrives with the GNAP
-  server phases.)
+  the optional `nonce` makes each signature unique.
+- **Replay prevention (opt-in):** set `VerificationOptions.NonceStore` (or
+  `HttpMessageSignatureOptions.NonceStore` for the middleware) and every nonce
+  is remembered per `keyid` until the signature's acceptance window
+  (`created + MaxAge + ClockSkew`, or `expires + ClockSkew` if earlier) ends —
+  a second copy of the same signed message is rejected. Nonces are recorded only
+  *after* the cryptographic check passed, so forgeries cannot burn them.
+  `RequireNonce = true` rejects signatures without a nonce.
 - **Downgrade protection:** an `alg` parameter that contradicts the key's
   registered algorithm is rejected before any crypto runs.
 - **Coverage policy:** `RequiredComponents` stops "valid but useless"

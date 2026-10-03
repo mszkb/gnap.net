@@ -408,10 +408,10 @@ Gnap.Core                                (depends only on Gnap.HttpMessageSignat
 │   ├── IKeyProofer              Sign an outgoing request  (client side).
 │   ├── IKeyProofValidator       Validate a received proof (server side).
 │   ├── HttpSigKeyProofer        httpsig implementation over Phase 0's signer.
-│   ├── HttpSigKeyProofValidator httpsig validation: coverage, tag, created
-│   │                            window, keyid, Content-Digest, nonce replay.
-│   └── INonceStore              Replay memory. InMemoryNonceStore included;
-│                                implement it over Redis/DB for clusters.
+│   └── HttpSigKeyProofValidator httpsig validation: coverage, tag, created
+│                                window, keyid, Content-Digest, nonce replay
+│                                (INonceStore / InMemoryNonceStore live in
+│                                Gnap.HttpMessageSignatures).
 │
 ├── InteractionFinishHash        Compute/Verify the Section 4.2.3 hash
 │                                (sha-256 default; sha-384/512; sha3-* where

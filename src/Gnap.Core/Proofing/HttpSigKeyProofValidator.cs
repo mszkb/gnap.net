@@ -24,13 +24,12 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
     public TimeSpan MaxAge { get; init; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
-    /// The replay protection store. When set, every accepted signature's nonce is
-    /// registered and repeated nonces are rejected. Strongly recommended for servers.
+    /// The replay protection store. When set, every cryptographically valid signature's
+    /// nonce is recorded (scoped by <c>keyid</c>) until its acceptance window
+    /// (<c>created + MaxAge + ClockSkew</c>) ends, and repeated nonces are rejected.
+    /// Strongly recommended for servers.
     /// </summary>
     public INonceStore? NonceStore { get; init; }
-
-    /// <summary>How long registered nonces are remembered. Defaults to 15 minutes.</summary>
-    public TimeSpan NonceLifetime { get; init; } = TimeSpan.FromMinutes(15);
 
     /// <summary>Whether a <c>nonce</c> parameter is required (the RFC says SHOULD). Defaults to <see langword="false"/>.</summary>
     public bool RequireNonce { get; init; }
@@ -107,6 +106,8 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
             MaxAge = MaxAge,
             RequireCreated = true,
             RequiredComponents = requiredComponents,
+            NonceStore = NonceStore,
+            RequireNonce = RequireNonce,
             TimeProvider = TimeProvider,
         });
 
@@ -138,25 +139,6 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
             if (ExpectedKeyId is not null && parameters.KeyId != ExpectedKeyId)
             {
                 lastFailure = $"Signature '{label}': the keyid does not match the presented key.";
-                continue;
-            }
-
-            if (parameters.Nonce is { } nonce)
-            {
-                if (NonceStore is not null)
-                {
-                    var expires = TimeProvider.GetUtcNow() + NonceLifetime;
-                    var scopedNonce = $"{parameters.KeyId}\n{nonce}";
-                    if (!await NonceStore.TryRegisterAsync(scopedNonce, expires, cancellationToken).ConfigureAwait(false))
-                    {
-                        lastFailure = $"Signature '{label}': the nonce was already used (replay).";
-                        continue;
-                    }
-                }
-            }
-            else if (RequireNonce)
-            {
-                lastFailure = $"Signature '{label}': a nonce parameter is required.";
                 continue;
             }
 

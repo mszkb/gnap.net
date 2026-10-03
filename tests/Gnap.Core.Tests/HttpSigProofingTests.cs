@@ -260,10 +260,10 @@ public class HttpSigProofingTests
         var clock = new FakeTimeProvider(DateTimeOffset.Parse("2026-01-01T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture));
         var store = new InMemoryNonceStore(clock);
 
-        Assert.True(await store.TryRegisterAsync("n1", clock.GetUtcNow().AddMinutes(5)));
-        Assert.False(await store.TryRegisterAsync("n1", clock.GetUtcNow().AddMinutes(5)));
+        Assert.True(await store.TryAddAsync("k", "n1", clock.GetUtcNow().AddMinutes(5)));
+        Assert.False(await store.TryAddAsync("k", "n1", clock.GetUtcNow().AddMinutes(5)));
 
         clock.Advance(TimeSpan.FromMinutes(6));
-        Assert.True(await store.TryRegisterAsync("n1", clock.GetUtcNow().AddMinutes(5)));
+        Assert.True(await store.TryAddAsync("k", "n1", clock.GetUtcNow().AddMinutes(5)));
     }
 }

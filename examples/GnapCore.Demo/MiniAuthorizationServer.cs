@@ -6,6 +6,7 @@ using Gnap.Core.Json;
 using Gnap.Core.Keys;
 using Gnap.Core.Models;
 using Gnap.Core.Proofing;
+using Gnap.HttpMessageSignatures;
 using Gnap.HttpMessageSignatures.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

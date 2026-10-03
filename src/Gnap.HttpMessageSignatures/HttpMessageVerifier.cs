@@ -32,6 +32,27 @@ public sealed class VerificationOptions
     /// <summary>Components every accepted signature must cover. Defaults to none.</summary>
     public IReadOnlyCollection<SignatureComponent> RequiredComponents { get; init; } = [];
 
+    /// <summary>
+    /// The replay protection store (RFC 9421 Section 7.2.2). When set, the <c>nonce</c>
+    /// of every signature is recorded, scoped by <c>keyid</c>, and a nonce seen again
+    /// within its acceptance window is rejected as a replay. Nonces are recorded only
+    /// after all selected signatures verified, so invalid messages cannot "burn" them.
+    /// Signatures without a nonce are not replay-checked unless <see cref="RequireNonce"/> is set.
+    /// </summary>
+    public INonceStore? NonceStore { get; init; }
+
+    /// <summary>Whether every signature must carry a <c>nonce</c> parameter. Defaults to <see langword="false"/>.</summary>
+    public bool RequireNonce { get; init; }
+
+    /// <summary>
+    /// How long a nonce is remembered when the signature's acceptance window is
+    /// unbounded, i.e. neither <see cref="MaxAge"/> (with <c>created</c>) nor an
+    /// <c>expires</c> parameter limits it. Otherwise nonces are kept exactly until
+    /// the window ends (<c>created + MaxAge + ClockSkew</c> or <c>expires + ClockSkew</c>).
+    /// Defaults to 15 minutes. Configure <see cref="MaxAge"/> for full replay prevention.
+    /// </summary>
+    public TimeSpan NonceRetention { get; init; } = TimeSpan.FromMinutes(15);
+
     /// <summary>The clock used for timestamp checks; overridable for tests.</summary>
     public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
 }
@@ -127,7 +148,53 @@ public sealed class HttpMessageVerifier
             results.Add(await VerifyOneAsync(message, sigLabel, inputMember, signatures, cancellationToken).ConfigureAwait(false));
         }
 
+        // Replay check last: a nonce is only recorded once every selected signature
+        // verified cryptographically, so an attacker cannot burn nonces with forgeries.
+        if (_options.NonceStore is { } nonceStore && results.TrueForAll(r => r.Succeeded))
+        {
+            for (var i = 0; i < results.Count; i++)
+            {
+                var parameters = results[i].Parameters!;
+                if (parameters.Nonce is not { } nonce)
+                {
+                    continue;
+                }
+
+                var accepted = await nonceStore
+                    .TryAddAsync(parameters.KeyId ?? string.Empty, nonce, GetNonceExpiry(parameters), cancellationToken)
+                    .ConfigureAwait(false);
+                if (!accepted)
+                {
+                    results[i] = new SignatureVerification(results[i].Label, false, "The nonce was already used (replay).", parameters);
+                }
+            }
+        }
+
         return VerificationResult.FromSignatures(results);
+    }
+
+    /// <summary>The end of the window in which <see cref="CheckTimestamps"/> would still accept the signature.</summary>
+    private DateTimeOffset GetNonceExpiry(SignatureParameters parameters)
+    {
+        var now = _options.TimeProvider.GetUtcNow();
+        DateTimeOffset? windowEnd = null;
+
+        if (parameters.Created is { } created && _options.MaxAge is { } maxAge)
+        {
+            windowEnd = created + maxAge + _options.ClockSkew;
+        }
+
+        if (parameters.Expires is { } expires)
+        {
+            var expiresEnd = expires + _options.ClockSkew;
+            windowEnd = windowEnd is { } end && end < expiresEnd ? end : expiresEnd;
+        }
+
+        // The timestamp checks accept a signature up to and including the window's
+        // end, so the entry must outlive that instant by one tick.
+        return windowEnd is { } inclusiveEnd
+            ? inclusiveEnd.AddTicks(1)
+            : now + _options.NonceRetention;
     }
 
     private async Task<SignatureVerification> VerifyOneAsync(
@@ -166,6 +233,11 @@ public sealed class HttpMessageVerifier
         if (timestampFailure is not null)
         {
             return Fail(timestampFailure, parameters);
+        }
+
+        if (_options.RequireNonce && parameters.Nonce is null)
+        {
+            return Fail("The signature has no nonce parameter.", parameters);
         }
 
         foreach (var required in _options.RequiredComponents)

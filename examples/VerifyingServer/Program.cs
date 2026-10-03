@@ -25,6 +25,7 @@ builder.Services.AddHttpMessageSignatureVerification(options =>
         .Add("test-key-ecc-p256", SignatureAlgorithm.EcdsaP256Sha256(PemKeyLoader.LoadEcdsa(DemoKeys.EccP256TestKeyPem)));
     options.RequiredComponents = [SignatureComponent.Method, SignatureComponent.TargetUri];
     options.MaxAge = TimeSpan.FromMinutes(10);
+    options.NonceStore = new InMemoryNonceStore();
 });
 
 var app = builder.Build();
