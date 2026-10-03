@@ -20,6 +20,12 @@ Mutation testing is focused on the security-critical core of
 
 The test project is `tests/Gnap.HttpMessageSignatures.Tests`.
 
+A second scope covers GNAP **key proofing** in `Gnap.Core`
+(see [`stryker-config.keyproofing.json`](../stryker-config.keyproofing.json)):
+`HttpSigKeyProofer.cs`, `HttpSigKeyProofValidator.cs` and `KeyProofing.cs` — the
+components a GNAP signature must cover, the pinned content digest algorithm, `tag`,
+`alg` and `keyid` checks. Its test project is `tests/Gnap.Core.Tests`.
+
 ## Running it
 
 Stryker is pinned as a local dotnet tool in `.config/dotnet-tools.json`:
@@ -27,6 +33,7 @@ Stryker is pinned as a local dotnet tool in `.config/dotnet-tools.json`:
 ```bash
 dotnet tool restore
 dotnet stryker            # reads stryker-config.json, takes ~3 minutes on 4 cores
+dotnet stryker --config-file stryker-config.keyproofing.json   # key proofing, ~4 minutes
 ```
 
 The HTML report is written to `StrykerOutput/<timestamp>/reports/mutation-report.html`
@@ -38,8 +45,9 @@ score drops below 90 % (`thresholds.break`).
 > the `cleartext` reporter instead.
 
 The GitHub Actions workflow [`mutation.yml`](../.github/workflows/mutation.yml)
-runs the same configuration nightly and on demand (`workflow_dispatch`) and
-uploads the report as an artifact.
+runs both configurations nightly, on demand (`workflow_dispatch`) and on pull
+requests that touch the mutation-tested code or its tests, fails below 90 % and
+uploads the reports as artifacts.
 
 ## Current result
 
@@ -59,6 +67,13 @@ exact timestamp-window boundaries (`created` exactly at the clock-skew limit),
 nonce retention without a bounded window, and the streaming read budget of
 `ContentDigest.ValidateAsync` with short reads.
 
+Key proofing (`stryker-config.keyproofing.json`): the first run scored 72.7 %;
+the survivors were unchecked argument guards, the exact failure reasons, a signature
+missing `@method`/`@target-uri`/`content-digest` or `created`, a `Content-Digest`
+split over two field lines, and a malformed `Content-Digest` with a pinned
+algorithm. `HttpSigProofingEdgeCaseTests` covers them; the scope now scores 100 % (gate:
+90 %; exclusions below).
+
 Mutants that fail to compile ("CompileError") are discarded by Stryker and do
 not count towards the score.
 
@@ -75,10 +90,13 @@ code:
 | `HttpMessageVerifier.VerifyOneAsync`, `ContentDigest.ValidateAsync` | `ConfigureAwait(false)` → `true` | Only changes the continuation context |
 | `ContentDigest.ValidateAsync` (`finally`) | Removing `Dispose()` | Leaks native hash handles, but the result is unchanged |
 | `SignatureBaseBuilder.CanonicalizeFieldValue` | Removing the "no line break" fast path | The general path produces the same string |
+| `HttpSigKeyProofer.AddProofAsync`, `HttpSigKeyProofValidator.ValidateAsync` | `ConfigureAwait(false)` → `true` | Only changes the continuation context |
 
 One equivalent mutant was removed by simplifying the code instead:
 `HttpMessageVerifier.ParseDictionaryField` no longer special-cases an absent
-field, because the empty string already parses as an empty dictionary.
+field, because the empty string already parses as an empty dictionary. The same
+simplification was applied to `HttpSigKeyProofValidator` (absent `Signature-Input`),
+and its unreachable fallback failure message was removed.
 
 When adding a new exclusion, keep it as narrow as possible (`disable once` plus
 the specific mutator) and always give a reason.

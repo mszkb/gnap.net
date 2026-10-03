@@ -2,12 +2,15 @@ name: Mutation testing
 
 on:
   workflow_dispatch:
-  # Gate on pull requests that touch the mutation-tested crypto code (scope: stryker-config.json).
+  # Gate on pull requests that touch the mutation-tested crypto code
+  # (scopes: stryker-config.json, stryker-config.keyproofing.json).
   pull_request:
     paths:
       - 'src/Gnap.HttpMessageSignatures/**'
+      - 'src/Gnap.Core/Proofing/**'
       - 'tests/Gnap.HttpMessageSignatures.Tests/**'
-      - 'stryker-config.json'
+      - 'tests/Gnap.Core.Tests/**'
+      - 'stryker-config*.json'
       - '.config/dotnet-tools.json'
   schedule:
     - cron: '17 3 * * *' # nightly
@@ -17,9 +20,17 @@ permissions:
 
 jobs:
   stryker:
-    name: Stryker.NET (break at 90 %)
+    name: Stryker.NET ${{ matrix.scope }} (break at 90 %)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scope: signatures
+            config: stryker-config.json
+          - scope: key-proofing
+            config: stryker-config.keyproofing.json
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,12 +44,12 @@ jobs:
         run: dotnet tool restore
 
       - name: Run Stryker.NET
-        run: dotnet stryker --break-at 90 --output StrykerOutput/ci
+        run: dotnet stryker --config-file ${{ matrix.config }} --break-at 90 --output StrykerOutput/ci
 
       - name: Upload mutation report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-report
+          name: mutation-report-${{ matrix.scope }}
           path: StrykerOutput/ci/reports
           retention-days: 14

@@ -9,6 +9,9 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Missing XML docs on public APIs (projects with GenerateDocumentationFile) are errors,
+         even if TreatWarningsAsErrors is ever relaxed. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
   </PropertyGroup>
 
   <PropertyGroup Label="Package metadata defaults">

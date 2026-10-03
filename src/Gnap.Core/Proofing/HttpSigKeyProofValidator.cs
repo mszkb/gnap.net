@@ -122,10 +122,9 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
         IReadOnlyList<string> labels;
         try
         {
-            var inputValues = message.GetFieldValues("signature-input");
-            labels = inputValues.Count == 0
-                ? []
-                : SfParser.ParseDictionary(string.Join(", ", inputValues)).Select(m => m.Key).ToArray();
+            // An absent field joins to "", which parses as an empty dictionary.
+            labels = SfParser.ParseDictionary(string.Join(", ", message.GetFieldValues("signature-input")))
+                .Select(m => m.Key).ToArray();
         }
         catch (SfParseException e)
         {
@@ -154,6 +153,7 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
         string? lastFailure = null;
         foreach (var label in labels)
         {
+            // Stryker disable once Boolean : ConfigureAwait(true/false) only changes the continuation context, which tests cannot observe.
             var verification = await verifier.VerifyAsync(message, label, cancellationToken).ConfigureAwait(false);
             if (!verification.Succeeded)
             {
@@ -183,7 +183,8 @@ public sealed class HttpSigKeyProofValidator : IKeyProofValidator
             return KeyProofResult.Success;
         }
 
-        return KeyProofResult.Failure(lastFailure ?? "The message carries no acceptable signature.");
+        // labels is not empty, so every path through the loop that reaches here set lastFailure.
+        return KeyProofResult.Failure(lastFailure!);
     }
 
     private static bool HasDigestEntry(string digestField, ContentDigestAlgorithm algorithm)

@@ -80,6 +80,7 @@ public sealed class HttpSigKeyProofer : IKeyProofer
 
         if (request.Content is not null)
         {
+            // Stryker disable once Boolean : ConfigureAwait(true/false) only changes the continuation context, which tests cannot observe.
             var content = await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
             if (!request.Content.Headers.Contains("Content-Digest"))
             {

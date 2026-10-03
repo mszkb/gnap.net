@@ -454,34 +454,54 @@ GNAP-Token-Verifikation in einer Zeile Middleware.
 
 ### Aufgaben
 
-- [ ] **Dokumentation:**
-  - [ ] README pro Package + Repo-README mit Quickstart (Client in 10 Zeilen)
-  - [ ] XML Docs auf allen Public APIs (`<PropertyGroup>`-Enforcement: CS1591 als Error)
-  - [ ] Architektur-Diagramme (Mermaid: Komponenten, Sequenzen für alle Flows)
-  - [ ] Threat-Model-Dokument (STRIDE-Kurzform) + Security-Hinweise für Betreiber
-- [ ] **NuGet-Release (4 Packages):**
-  - [ ] `Gnap.HttpMessageSignatures`, `Gnap.Core`, `Gnap.Client`, `Gnap.AspNetCore`
-  - [ ] Source Link, deterministische Builds, SemVer, signierte Packages,
-        `PackageReadmeFile`
-- [ ] **CI/CD (GitHub Actions):**
-  - [ ] Build + Test-Matrix (Linux/Windows), Coverage-Gate
-  - [ ] CodeQL (C#) auf jedem PR
+- [x] **Dokumentation:**
+  - [x] README pro Package (`src/*/README.md`, als `PackageReadmeFile` im Package) +
+        Repo-README mit Installation und Quickstart (Client in 10 Zeilen)
+  - [x] XML Docs auf allen Public APIs (`GenerateDocumentationFile` +
+        `TreatWarningsAsErrors`, zusätzlich `WarningsAsErrors` CS1591 in
+        `Directory.Build.props`)
+  - [x] Architektur-Diagramme (Mermaid: Packages, Komponenten, AS-Interna, Sequenzen
+        für Redirect, User Code, Push, Policy-Approval, RS-Introspection, RS-first
+        Discovery, Token-/Key-Rotation, Grant-State-Machine) — `docs/architecture.md`
+  - [x] Threat-Model-Dokument (STRIDE-Kurzform) + Security-Hinweise für Betreiber —
+        `docs/threat-model.md`, `SECURITY.md`; außerdem `CHANGELOG.md`,
+        `CONTRIBUTING.md`, `docs/releasing.md`
+- [ ] **NuGet-Release (5 Packages** — `Gnap.HttpMessageSignatures.AspNetCore` ist
+      Abhängigkeit von `Gnap.AspNetCore`**):**
+  - [ ] `Gnap.HttpMessageSignatures`, `Gnap.HttpMessageSignatures.AspNetCore`,
+        `Gnap.Core`, `Gnap.Client`, `Gnap.AspNetCore` — vorbereitet, Veröffentlichung
+        durch den Owner (Secret `NUGET_API_KEY` + Tag, siehe `docs/releasing.md`).
+        **Blocker:** die ID `Gnap.Core` ist auf nuget.org bereits vergeben (fremdes
+        Package von 2018) — Umbenennung der Package-IDs nötig
+  - [x] Source Link, deterministische Builds (`ContinuousIntegrationBuild` in CI),
+        SemVer (Version aus dem Tag), Symbol-Packages (`.snupkg`), `PackageReadmeFile`,
+        Package Validation; signierte Packages: Repository-Signatur durch nuget.org,
+        Author-Signing optional (Zertifikat nötig, dokumentiert)
+- [x] **CI/CD (GitHub Actions):**
+  - [x] Build + Test-Matrix (Linux/Windows), Coverage-Gate (Zeilen ≥ 85 %,
+        Branches ≥ 75 %, ReportGenerator), Packages als Artefakt
+  - [x] CodeQL (C#) auf jedem PR und Push nach `main` — `.github/workflows/codeql.yml`
   - [x] Nightly Interop-Runs (Phase 5) — `.github/workflows/interop.yml`
-  - [ ] Release-Workflow: Tag → Pack → Push nach NuGet.org
-- [ ] **Stryker.NET Mutation Testing** für Krypto-Logik (Phase 0 + Key Proofing)
-      als CI-Gate (Phase 0 bereits nightly/manuell mit `--break-at 90`;
-      offen: Key Proofing in den Scope aufnehmen, Gate auf PRs)
-- [ ] **Example Apps** mit Docker-Compose:
-  - [ ] `examples/console-client` — CLI-Client mit User Code Flow
-  - [ ] `examples/web-client` — ASP.NET Core Web-App mit Redirect-Flow
-  - [ ] `examples/authorization-server` — AS mit Consent UI
-  - [ ] `examples/resource-server` — geschützte Minimal-API
+  - [x] Release-Workflow: Tag → Build/Test → Pack → Package-Checks → Push nach
+        NuGet.org → GitHub Release — `.github/workflows/release.yml`
+- [x] **Stryker.NET Mutation Testing** für Krypto-Logik (Phase 0 + Key Proofing)
+      als CI-Gate: zwei Scopes (`stryker-config.json`,
+      `stryker-config.keyproofing.json`), nightly, manuell und auf PRs, die den Code
+      berühren, `--break-at 90`
+- [x] **Example Apps** mit Docker-Compose (`examples/docker-compose.yml`, Namen nach
+      der bestehenden Konvention der Beispiele):
+  - [x] `examples/GnapConsoleClient` — CLI-Client mit User Code Flow (RS-first Discovery)
+  - [x] `examples/GnapWebClient` — ASP.NET Core Web-App mit Redirect-Flow
+  - [x] `examples/GnapAuthorizationServer` — AS mit Consent UI
+  - [x] `examples/GnapResourceServer` — geschützte Minimal-API
+  - [x] `examples/e2e.sh` prüft beide Client-Flows gegen den Stack (CI-Job)
 
 ### Akzeptanzkriterien
 
 - ✅ `docker compose up` in `examples/` ergibt einen vollständigen lauffähigen
-      GNAP-Stack
-- ✅ Alle 4 Packages auf NuGet.org, Source Link funktioniert im Debugger
+      GNAP-Stack (in CI per `examples/e2e.sh` geprüft)
+- ⏳ Alle Packages auf NuGet.org, Source Link funktioniert im Debugger
+      (vorbereitet; Release durch den Owner)
 - ✅ CI vollständig grün inkl. CodeQL, Mutation-Gate und Nightly Interop
 
 ---
@@ -512,6 +532,7 @@ GNAP-Token-Verifikation in einer Zeile Middleware.
 | Package | Inhalt | Abhängigkeiten |
 |---------|--------|----------------|
 | `Gnap.HttpMessageSignatures` | RFC 9421 + RFC 9530, Middleware, `DelegatingHandler` | `BouncyCastle.Cryptography` (nur für Ed25519) |
+| `Gnap.HttpMessageSignatures.AspNetCore` | Verifikations-Middleware für ASP.NET Core | `Gnap.HttpMessageSignatures`, ASP.NET Core |
 | `Gnap.Core` | JWK, Key Proofing, Modelle, Finish Hash | `Gnap.HttpMessageSignatures` |
 | `Gnap.Client` | GNAP-Client, Discovery, Flows, Token Management | `Gnap.Core` |
 | `Gnap.AspNetCore` | AS-Framework + RS-Middleware | `Gnap.Core`, ASP.NET Core |

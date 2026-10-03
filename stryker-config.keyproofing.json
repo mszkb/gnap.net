@@ -1,0 +1,17 @@
+{
+  "stryker-config": {
+    "solution": "Gnap.sln",
+    "project": "Gnap.Core.csproj",
+    "test-projects": [
+      "tests/Gnap.Core.Tests/Gnap.Core.Tests.csproj"
+    ],
+    "mutate": [
+      "**/Proofing/HttpSigKeyProofValidator.cs",
+      "**/Proofing/HttpSigKeyProofer.cs",
+      "**/Proofing/KeyProofing.cs"
+    ],
+    "reporters": [ "cleartext", "html", "json", "markdown" ],
+    "thresholds": { "high": 95, "low": 90, "break": 90 },
+    "coverage-analysis": "perTest"
+  }
+}
