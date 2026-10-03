@@ -41,6 +41,12 @@ jobs:
         if: runner.os == 'Linux'
         run: dotnet run --project examples/HttpSignatures.Demo --configuration Release --no-build -- vectors
 
+      - name: Native AOT smoke test (Gnap.Core)
+        if: runner.os == 'Linux'
+        run: |
+          dotnet publish tests/Gnap.Core.AotSmoke --configuration Release -r linux-x64 -o artifacts/aot-smoke
+          ./artifacts/aot-smoke/Gnap.Core.AotSmoke
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

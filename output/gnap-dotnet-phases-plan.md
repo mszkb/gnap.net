@@ -158,10 +158,19 @@ AS und RS gemeinsam nutzen.
         via `INonceStore`)
   - [x] Proofing-Abstraktion `IKeyProofer` / `IKeyProofValidator` (erweiterbar für
         `mtls`, `jwsd`, `jws`)
+  - [x] Objekt-Form von `httpsig` mit `alg` und `content-digest-alg`
+        (`ProofMethod.ForHttpSig`, `GnapKey.ForHttpSig(jwk, digestAlg)`,
+        `HttpSigKeyProofer.ToProofMethod()`, `HttpSigKeyProofValidator.ForKey(key)`;
+        gepinnter `alg` muss zum Schlüssel passen, gepinnter Digest wird erzwungen)
+- [x] **Access-Token-Präsentation (RFC 9635 §7.2):** `GnapAuthorization`
+      (`Authorization: GNAP <token>`, `token68`-Validierung, Parsing)
 - [x] **Interaction Finish Hash (RFC 9635 §4.2.3):**
       `hash = base64url(H(client_nonce + "\n" + as_nonce + "\n" + interact_ref + "\n" + grant_endpoint_url))`
       mit Hash-Agilität (`sha-256` Default, IANA Named Information Registry;
       sha-384/512 immer, sha3-256/384/512 plattformabhängig)
+- [x] **Interaction Finish Callback (RFC 9635 §4.2.1/§4.2.2):** `InteractionFinishCallback`
+      (`hash` + `interact_ref` als Redirect-Query-Parameter oder `push`-JSON-Body,
+      inkl. Hash-Verifikation)
 - [x] **Access Token Model:** Wert, `label`, `access` (Array aus Strings und
       strukturierten Objekten), `expires_in`, `key`-Binding (bound/bearer), Flags (`durable`),
       Token-Management (`manage` mit eigenem Access Token)
@@ -185,18 +194,20 @@ AS und RS gemeinsam nutzen.
 
 - [x] JWK Roundtrip (parse → export → parse) für alle Key-Typen, Thumbprint-Vektoren
       aus RFC 7638 (RSA) und RFC 8037 (Ed25519)
-- [x] Key Proof positiv/negativ (falscher Key, manipulierter Body, Replay, fehlender/falscher
-      `tag`, verbotener `alg`-Parameter, veraltete Signatur, `keyid`-Mismatch)
+- [x] Key Proof positiv/negativ (falscher Key, manipulierter Body, manipulierte Methode/
+      Ziel-URI, getauschtes oder nachträglich eingefügtes Access Token, Replay,
+      fehlender/falscher `tag`, verbotener `alg`-Parameter, veraltete Signatur,
+      `keyid`-Mismatch, falscher gepinnter `alg`/`content-digest-alg`)
 - [x] Finish-Hash-Vektoren (sha-256- und sha3-512-Vektoren aus RFC 9635 §4.2.3)
 - [x] JSON Serialization Roundtrip für alle Modelle mit Source Generators,
       inkl. Unknown-Member-Toleranz (Forward Compatibility)
 
 ### Akzeptanzkriterien
 
-- [x] Alle Modelle bilden RFC 9635 §2–§8 vollständig ab (67 Tests in `Gnap.Core.Tests`)
+- [x] Alle Modelle bilden RFC 9635 §2–§8 vollständig ab (108 Tests in `Gnap.Core.Tests`)
 - [x] Kein Reflection-basiertes JSON (Source Generators only); `IsAotCompatible`
-      aktiviert, AOT-Analyzer warnungsfrei (Native-AOT-Publish-Smoke-Test folgt mit
-      Phase 6 CI-Ausbau)
+      aktiviert, AOT-Analyzer warnungsfrei; Native-AOT-Publish kompiliert und läuft
+      (`tests/Gnap.Core.AotSmoke`, in CI auf Linux)
 - [x] Key-Proof-Negativtests decken alle Manipulationsklassen ab
 
 ---

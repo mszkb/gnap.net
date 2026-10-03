@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Native AOT smoke test for Gnap.Core (Phase 1 acceptance criterion
+    "no reflection-based JSON, AOT publish compiles").
+    Run:  dotnet publish tests/Gnap.Core.AotSmoke -c Release -r linux-x64
+    then execute the produced native binary; it exits with 0 on success.
+    Trim/AOT analysis warnings fail the publish (TreatWarningsAsErrors).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Gnap.Core\Gnap.Core.csproj" />
+  </ItemGroup>
+
+</Project>

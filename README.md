@@ -20,9 +20,10 @@ New here? Two plain-language guides build the concepts up from zero:
 |---------|----------|
 | `src/Gnap.HttpMessageSignatures` | RFC 9421 signature base canonicalization, signing/verification (Ed25519, ECDSA P-256/P-384, RSA-PSS, RSA v1.5, HMAC-SHA256), RFC 9530 `Content-Digest`, RFC 8941 structured fields, nonce replay protection (`INonceStore`), PEM key loading, `HttpClient` `DelegatingHandler` |
 | `src/Gnap.HttpMessageSignatures.AspNetCore` | ASP.NET Core middleware verifying signatures and content digests on incoming requests, with optional nonce-based replay protection |
-| `src/Gnap.Core` | RFC 9635 building blocks: `JsonWebKey` (EC/OKP/RSA, RFC 7638 thumbprints, conversion to signing keys), `httpsig` key proofing with nonce replay protection, the interaction finish hash, and source-generated JSON models for grant requests/responses |
-| `tests/Gnap.HttpMessageSignatures.Tests` | 147 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) and FsCheck property tests (deterministic signature base, header order/casing invariance, sign→verify for all algorithms, tamper sensitivity, RFC 8941 and `@query-param` codec roundtrips) |
-| `tests/Gnap.Core.Tests` | 67 tests: RFC 7638/8037 thumbprint vectors, RFC 9635 §4.2.3 finish-hash vectors, key-proof negative tests (wrong key, tampered body, replay, …), JSON round-trips with unknown-member tolerance |
+| `src/Gnap.Core` | RFC 9635 building blocks: `JsonWebKey` (EC/OKP/RSA, RFC 7638 thumbprints, conversion to signing keys), `httpsig` key proofing (string and object form with pinned `alg`/`content-digest-alg`) with nonce replay protection, the interaction finish hash and finish callback (redirect/push), `Authorization: GNAP` token presentation, and source-generated JSON models for grant requests/responses (Native-AOT-verified) |
+| `tests/Gnap.HttpMessageSignatures.Tests` | 213 tests, including **all RFC 9421 Appendix B test vectors** (B.1 keys, B.2.1–B.2.6, B.3 proxy, B.4 transformations) and FsCheck property tests (deterministic signature base, header order/casing invariance, sign→verify for all algorithms, tamper sensitivity, RFC 8941 and `@query-param` codec roundtrips) |
+| `tests/Gnap.Core.Tests` | 108 tests: RFC 7638/8037 thumbprint vectors, RFC 9635 §4.2.3 finish-hash vectors, key-proof negative tests (wrong key, tampered body/method/URI/token, replay, wrong tag/alg/keyid/digest, stale), JSON round-trips with unknown-member tolerance |
+| `tests/Gnap.Core.AotSmoke` | Native AOT smoke test: publishes Gnap.Core as a native binary (trim/AOT warnings are errors) and exercises JSON, JWK and proofing paths at runtime |
 | `examples/HttpSignatures.Demo` | Self-contained test bed: vector checks plus a live signed-client-against-Kestrel demo |
 | `examples/VerifyingServer` | Standalone Kestrel resource server protected by the verification middleware |
 | `examples/SigningClient` | CLI that signs requests, prints the signature base/headers and calls any URL |
@@ -84,6 +85,10 @@ implement `INonceStore` (atomically) over a shared cache for multi-instance depl
 dotnet test                                        # full suite incl. RFC 9421 vectors
 dotnet run --project examples/HttpSignatures.Demo  # manual test: vectors + live demo
 dotnet run --project examples/GnapCore.Demo        # GNAP walkthrough + live mini-AS round trip
+
+# Native AOT smoke test for Gnap.Core (needs clang/zlib, as for any Native AOT publish)
+dotnet publish tests/Gnap.Core.AotSmoke -c Release -r linux-x64 -o artifacts/aot-smoke
+./artifacts/aot-smoke/Gnap.Core.AotSmoke
 ```
 
 The demo starts a local Kestrel server with the verification middleware, sends a
