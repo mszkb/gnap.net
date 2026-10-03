@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using Gnap.Client;
+using Gnap.Client.Discovery;
 using Gnap.Core;
 using Gnap.Core.Json;
 using Gnap.Core.Keys;
@@ -75,7 +77,22 @@ Check(proof.Succeeded, $"httpsig proof ({proof.FailureReason})");
 Check(InteractionFinishHash.Compute("c", "a", "r", "https://as.example/gnap").Length == 43, "finish hash");
 Check(GnapAuthorization.TryParse(GnapAuthorization.CreateHeaderValue("t0k3n"), out var token) && token == "t0k3n", "authorization header");
 
-Console.WriteLine(failures == 0 ? "Gnap.Core AOT smoke test passed." : $"{failures} check(s) failed.");
+// Gnap.Client: discovery (its own source-generated context) and a signed grant round trip.
+using var staticAs = new StaticAuthorizationServer();
+using var asHttp = new HttpClient(staticAs);
+var gnapClient = new GnapClient(asHttp, new GnapClientOptions
+{
+    GrantEndpoint = new Uri("https://as.example/tx"),
+    ClientKey = GnapClientKey.FromJwk(jwk),
+});
+var metadata = await gnapClient.DiscoverAsync();
+Check(metadata.SupportsStartMode(StartModes.Redirect) && metadata.KeyRotationSupported == true, "client discovery");
+var grant = await gnapClient.RequestAccessAsync([AccessRight.ForReference("r")]);
+Check(grant.AccessToken?.Value == "t" && grant.AccessToken.BoundKey is not null, "client grant");
+Check(staticAs.SawSignedGrantRequest, "client grant request signed");
+Check(GnapResourceChallenge.TryParse("GNAP as_uri=\"https://as.example/tx\", access=\"a\"", out var challenge) && challenge.Access == "a", "RS challenge");
+
+Console.WriteLine(failures == 0 ? "Gnap.Core/Gnap.Client AOT smoke test passed." : $"{failures} check(s) failed.");
 return failures == 0 ? 0 : 1;
 
 void Check(bool condition, string what)
@@ -84,5 +101,32 @@ void Check(bool condition, string what)
     {
         Console.Error.WriteLine($"FAIL: {what}");
         failures++;
+    }
+}
+
+/// <summary>A canned AS: answers discovery and issues a token for any signed grant request.</summary>
+internal sealed class StaticAuthorizationServer : HttpMessageHandler
+{
+    public bool SawSignedGrantRequest { get; private set; }
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        string json;
+        if (request.Method == HttpMethod.Options)
+        {
+            json = /*lang=json,strict*/ """
+                { "grant_request_endpoint": "https://as.example/tx", "interaction_start_modes_supported": ["redirect"], "key_rotation_supported": true }
+                """;
+        }
+        else
+        {
+            SawSignedGrantRequest = request.Headers.Contains("Signature") && request.Headers.Contains("Signature-Input");
+            json = /*lang=json,strict*/ """{ "access_token": { "value": "t", "access": ["r"] } }""";
+        }
+
+        return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
+        });
     }
 }
